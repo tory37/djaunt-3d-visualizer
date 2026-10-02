@@ -24,6 +24,7 @@ function readPalette() {
   palette.face = token('--face-color');
   palette.grid = token('--grid-color');
   palette.horizon = token('--dj-accent');
+  palette.guide = token('--dj-accent');
   // Categorical accents: the brand's colors for coding several things at once.
   palette.vp = [token('--dj-accent-2'), token('--dj-accent-3'), token('--dj-accent-4')];
 }
@@ -40,6 +41,7 @@ const DEFAULTS = {
   scale: 1,
   horizon: false,
   vanishing: false,
+  guides: true,
   grid: false,
   paper: false,
 };
@@ -52,6 +54,7 @@ const PRESETS = {
 };
 
 const state = { ...DEFAULTS, shapeId: SHAPES[0].id };
+let shape = SHAPES[0];
 
 // ---------- renderer & scene ----------
 
@@ -99,6 +102,9 @@ const solidMaterial = new THREE.MeshStandardMaterial({
   polygonOffsetFactor: 1,
   polygonOffsetUnits: 1,
 });
+// Curved shapes are shaded smoothly from their vertex normals.
+const smoothMaterial = solidMaterial.clone();
+smoothMaterial.flatShading = false;
 // Invisible, depth-only stand-in used in wireframe mode to tell front edges from back edges.
 const depthMaterial = new THREE.MeshBasicMaterial({
   colorWrite: false,
@@ -117,21 +123,36 @@ const hiddenEdgeMaterial = new LineMaterial({
   gapSize: 0.1,
 });
 hiddenEdgeMaterial.depthFunc = THREE.GreaterDepth;
+// Construction lines: lighter than the edges, like a colored pencil underdrawing.
+const guideMaterial = new LineMaterial({ linewidth: 1, transparent: true, opacity: 0.9 });
+const hiddenGuideMaterial = new LineMaterial({
+  linewidth: 1,
+  transparent: true,
+  opacity: 0.45,
+  depthWrite: false,
+  dashed: true,
+  dashSize: 0.08,
+  gapSize: 0.08,
+});
+hiddenGuideMaterial.depthFunc = THREE.GreaterDepth;
 
 function applyPalette() {
   document.documentElement.classList.toggle('dj-light', state.paper);
   readPalette();
   renderer.setClearColor(palette.bg);
   solidMaterial.color.set(palette.face);
+  smoothMaterial.color.set(palette.face);
+  guideMaterial.color.set(palette.guide);
+  hiddenGuideMaterial.color.set(palette.guide);
   edgeMaterial.color.set(palette.line);
   hiddenEdgeMaterial.color.set(palette.line);
   grid.material.color.set(palette.grid);
 }
 
-let mesh, edges, hiddenEdges, edgeSegments = [];
+let mesh, edges, hiddenEdges, guides, hiddenGuides, contour = null, edgeSegments = [];
 
 function loadShape(id) {
-  const shape = SHAPES.find((s) => s.id === id) || SHAPES[0];
+  shape = SHAPES.find((s) => s.id === id) || SHAPES[0];
   state.shapeId = shape.id;
 
   for (const child of [...model.children]) {
@@ -139,14 +160,17 @@ function loadShape(id) {
     child.geometry.dispose();
   }
 
+  // Recenter and resize to the common size; the guides get the same treatment.
   const geometry = shape.build();
   geometry.computeBoundingSphere();
   const { center, radius } = geometry.boundingSphere;
-  geometry.translate(-center.x, -center.y, -center.z);
-  geometry.scale(SHAPE_RADIUS / radius, SHAPE_RADIUS / radius, SHAPE_RADIUS / radius);
+  const k = SHAPE_RADIUS / radius;
+  const normalize = new THREE.Matrix4().makeScale(k, k, k)
+    .multiply(new THREE.Matrix4().makeTranslation(-center.x, -center.y, -center.z));
+  geometry.applyMatrix4(normalize);
   geometry.computeBoundingSphere();
 
-  const edgesGeometry = new THREE.EdgesGeometry(geometry, shape.edgeAngle ?? 1);
+  const edgesGeometry = new THREE.EdgesGeometry(geometry, shape.edgeAngle ?? (shape.curved ? 30 : 1));
   const lineGeometry = new LineSegmentsGeometry().fromEdgesGeometry(edgesGeometry);
 
   mesh = new THREE.Mesh(geometry, solidMaterial);
@@ -157,7 +181,23 @@ function loadShape(id) {
   hiddenEdges.renderOrder = 2;
   model.add(mesh, edges, hiddenEdges);
 
-  edgeSegments = classifyEdges(edgesGeometry, shape.vanishingDirections);
+  contour = shape.curved ? createContour(geometry) : null;
+  if (contour) model.add(contour.visible, contour.hidden);
+
+  const guideSegments = buildGuides(shape, normalize);
+  guides = hiddenGuides = null;
+  if (guideSegments.length) {
+    const guideGeometry = new LineSegmentsGeometry()
+      .setPositions(guideSegments.flatMap(({ a, b }) => [...a.toArray(), ...b.toArray()]));
+    guides = new LineSegments2(guideGeometry, guideMaterial);
+    guides.renderOrder = 1;
+    hiddenGuides = new LineSegments2(guideGeometry, hiddenGuideMaterial);
+    hiddenGuides.computeLineDistances();
+    hiddenGuides.renderOrder = 2;
+    model.add(guides, hiddenGuides);
+  }
+
+  edgeSegments = classifyEdges(segmentsOf(edgesGeometry), guideSegments, shape);
   edgesGeometry.dispose();
 
   applyMode();
@@ -165,23 +205,222 @@ function loadShape(id) {
   requestRender();
 }
 
-// Group the shape's edges by which vanishing direction (if any) they run along.
-function classifyEdges(edgesGeometry, directions) {
-  if (!directions) return [];
-  const dirs = directions.map((d) => new THREE.Vector3(...d).normalize());
+function segmentsOf(edgesGeometry) {
   const pos = edgesGeometry.attributes.position;
   const segments = [];
-  const a = new THREE.Vector3();
-  const b = new THREE.Vector3();
-  const u = new THREE.Vector3();
   for (let i = 0; i < pos.count; i += 2) {
-    a.fromBufferAttribute(pos, i);
-    b.fromBufferAttribute(pos, i + 1);
-    u.subVectors(b, a).normalize();
-    const family = dirs.findIndex((d) => Math.abs(d.dot(u)) > 0.999);
-    if (family >= 0) segments.push({ a: a.clone(), b: b.clone(), family });
+    segments.push({
+      a: new THREE.Vector3().fromBufferAttribute(pos, i),
+      b: new THREE.Vector3().fromBufferAttribute(pos, i + 1),
+    });
   }
-  return segments.length ? { dirs, segments } : [];
+  return segments;
+}
+
+function buildGuides(shape, normalize) {
+  if (!shape.guides) return [];
+  const segments = [];
+  for (const line of shape.guides()) {
+    const points = line.map((p) => new THREE.Vector3(...p).applyMatrix4(normalize));
+    for (let i = 1; i < points.length; i++) {
+      segments.push({ a: points[i - 1], b: points[i], guide: true });
+    }
+  }
+  return segments;
+}
+
+const isParallel = (u, v) => Math.abs(u.dot(v)) > 0.999;
+const direction = (seg) => new THREE.Vector3().subVectors(seg.b, seg.a).normalize();
+
+// Every direction shared by two or more edges: the shape's vanishing directions.
+function findEdgeFamilies(segments) {
+  const families = [];
+  for (const seg of segments) {
+    const u = direction(seg);
+    const family = families.find((f) => isParallel(f.dir, u));
+    if (family) family.count++;
+    else families.push({ dir: u, count: 1 });
+  }
+  return families.filter((f) => f.count >= 2).map((f) => f.dir);
+}
+
+// Group the shape's edges and construction lines by which vanishing direction
+// they run along, and give each direction a label and a color.
+function classifyEdges(edgeSegs, guideSegs, shape) {
+  const directions = shape.vanishingDirections
+    ? shape.vanishingDirections.map((d) => new THREE.Vector3(...d).normalize())
+    : shape.curved ? [] : findEdgeFamilies(edgeSegs);
+  if (!directions.length) return [];
+
+  // Axis-aligned directions keep the same label and color on every shape.
+  const axisOf = (d) => [d.x, d.y, d.z].findIndex((c) => Math.abs(Math.abs(c) - 1) < 1e-3);
+  const families = directions
+    .map((dir) => ({ dir, axis: axisOf(dir) }))
+    .sort((p, q) => (p.axis < 0 ? 3 : p.axis) - (q.axis < 0 ? 3 : q.axis));
+  const usedColors = new Set(families.map((f) => f.axis).filter((a) => a >= 0));
+  const spareColors = [0, 1, 2].filter((c) => !usedColors.has(c));
+  let oblique = 0;
+  for (const f of families) {
+    if (f.axis >= 0) {
+      f.label = 'XYZ'[f.axis];
+      f.color = f.axis;
+    } else {
+      f.label = String(oblique + 1);
+      f.color = spareColors.length ? spareColors[oblique % spareColors.length] : oblique % 3;
+      oblique++;
+    }
+  }
+
+  const segments = [];
+  for (const seg of [...edgeSegs, ...guideSegs]) {
+    const u = direction(seg);
+    const family = families.findIndex((f) => isParallel(f.dir, u));
+    if (family >= 0) segments.push({ ...seg, family });
+  }
+  return { families, segments };
+}
+
+// ---------- contours of curved shapes ----------
+
+// A curved surface's outline depends on where you look from, so it is traced
+// again for every frame: on each triangle, find where the surface turns from
+// facing the eye to facing away (n · (p - eye) = 0, interpolated from the
+// vertex normals) and draw a segment there. The result is the exact silhouette
+// plus any inner contours (the inside of a torus), smooth rather than stepped.
+function createContour(geometry) {
+  const index = geometry.index ? geometry.index.array : null;
+  const position = geometry.attributes.position.array;
+  const normal = geometry.attributes.normal.array;
+  const vertexCount = position.length / 3;
+  const triangles = index ? index.length / 3 : vertexCount / 3;
+
+  // Fixed-size buffers, refilled in place: at most one segment per triangle.
+  const lineGeometry = new LineSegmentsGeometry();
+  lineGeometry.setPositions(new Float32Array(triangles * 6));
+  const distances = new THREE.InstancedInterleavedBuffer(new Float32Array(triangles * 2), 2, 1);
+  lineGeometry.setAttribute('instanceDistanceStart', new THREE.InterleavedBufferAttribute(distances, 1, 0));
+  lineGeometry.setAttribute('instanceDistanceEnd', new THREE.InterleavedBufferAttribute(distances, 1, 1));
+  lineGeometry.instanceCount = 0;
+  const out = lineGeometry.attributes.instanceStart.data;
+
+  const visible = new LineSegments2(lineGeometry, edgeMaterial);
+  visible.renderOrder = 1;
+  const hidden = new LineSegments2(lineGeometry, hiddenEdgeMaterial);
+  hidden.renderOrder = 2;
+  for (const line of [visible, hidden]) line.frustumCulled = false; // bounds change every frame
+
+  // Vertices that share a position (UV seams, poles, apexes) count as one, so
+  // contour pieces on either side of a seam still join up.
+  const weld = new Uint32Array(vertexCount);
+  const seen = new Map();
+  for (let v = 0; v < vertexCount; v++) {
+    const key = `${position[v * 3].toFixed(5)},${position[v * 3 + 1].toFixed(5)},${position[v * 3 + 2].toFixed(5)}`;
+    if (!seen.has(key)) seen.set(key, v);
+    weld[v] = seen.get(key);
+  }
+
+  const facing = new Float32Array(vertexCount);
+  const eye = new THREE.Vector3();
+  const corner = [0, 0, 0];
+  const cross = [];
+  const crossKeys = [];
+  const pieces = new Float32Array(triangles * 6);
+  // link[2i + end] = the neighbouring piece's end (2j + end) touching that end, or -1.
+  const link = new Int32Array(triangles * 2);
+  const used = new Uint8Array(triangles);
+  const openEnds = new Map();
+
+  function connect(slot, key) {
+    const other = openEnds.get(key);
+    if (other === undefined) {
+      openEnds.set(key, slot);
+    } else {
+      openEnds.delete(key);
+      link[slot] = other;
+      link[other] = slot;
+    }
+  }
+
+  function update() {
+    eye.copy(camera.position);
+    model.worldToLocal(eye);
+    for (let v = 0, i = 0; v < vertexCount; v++, i += 3) {
+      facing[v] = normal[i] * (position[i] - eye.x)
+        + normal[i + 1] * (position[i + 1] - eye.y)
+        + normal[i + 2] * (position[i + 2] - eye.z);
+    }
+
+    // One piece per triangle the contour crosses, keyed by the mesh edges it
+    // starts and ends on, so neighbouring pieces can be joined.
+    let count = 0;
+    openEnds.clear();
+    for (let t = 0; t < triangles; t++) {
+      for (let c = 0; c < 3; c++) corner[c] = index ? index[t * 3 + c] : t * 3 + c;
+      cross.length = 0;
+      crossKeys.length = 0;
+      for (let c = 0; c < 3; c++) {
+        const p = corner[c];
+        const q = corner[(c + 1) % 3];
+        const fp = facing[p];
+        const fq = facing[q];
+        if ((fp < 0) === (fq < 0)) continue;
+        const s = fp / (fp - fq);
+        for (let k = 0; k < 3; k++) {
+          cross.push(position[p * 3 + k] + s * (position[q * 3 + k] - position[p * 3 + k]));
+        }
+        const wp = weld[p];
+        const wq = weld[q];
+        crossKeys.push(Math.min(wp, wq) * vertexCount + Math.max(wp, wq));
+      }
+      if (cross.length !== 6) continue;
+      if (Math.hypot(cross[3] - cross[0], cross[4] - cross[1], cross[5] - cross[2]) < 1e-7) {
+        continue; // collapsed triangles at poles and apexes
+      }
+      pieces.set(cross, count * 6);
+      link[count * 2] = link[count * 2 + 1] = -1;
+      used[count] = 0;
+      connect(count * 2, crossKeys[0]);
+      connect(count * 2 + 1, crossKeys[1]);
+      count++;
+    }
+
+    // Walk the pieces into continuous lines, so the dashes of hidden contours
+    // run evenly along each line instead of restarting on every piece.
+    let n = 0;
+    let travelled = 0;
+    for (let first = 0; first < count; first++) {
+      if (used[first]) continue;
+      // Back up to one end of the line (or all the way round a loop).
+      let slot = first * 2;
+      for (let steps = 0; steps < count; steps++) {
+        const next = link[slot];
+        if (next < 0 || next >> 1 === first) break;
+        slot = next ^ 1;
+      }
+      let piece = slot >> 1;
+      let from = slot & 1;
+      while (piece >= 0 && !used[piece]) {
+        used[piece] = 1;
+        const a = piece * 6 + from * 3;
+        const b = piece * 6 + (from ^ 1) * 3;
+        out.array.set(pieces.subarray(a, a + 3), n * 6);
+        out.array.set(pieces.subarray(b, b + 3), n * 6 + 3);
+        distances.array[n * 2] = travelled;
+        travelled += Math.hypot(pieces[b] - pieces[a], pieces[b + 1] - pieces[a + 1], pieces[b + 2] - pieces[a + 2]);
+        distances.array[n * 2 + 1] = travelled;
+        n++;
+        const next = link[piece * 2 + (from ^ 1)];
+        piece = next >> 1;
+        from = next & 1;
+      }
+    }
+
+    lineGeometry.instanceCount = n;
+    out.needsUpdate = true;
+    distances.needsUpdate = true;
+  }
+
+  return { visible, hidden, update };
 }
 
 function hasVanishingPoints() {
@@ -190,12 +429,20 @@ function hasVanishingPoints() {
 
 function applyMode() {
   const wire = state.mode === 'wireframe';
-  mesh.material = wire ? depthMaterial : solidMaterial;
+  const showHidden = wire && state.hiddenEdges;
+  mesh.material = wire ? depthMaterial : shape.curved ? smoothMaterial : solidMaterial;
   // A plain wireframe needs no depth stand-in: every edge is drawn the same.
   mesh.visible = !wire || state.hiddenEdges;
-  hiddenEdges.visible = wire && state.hiddenEdges;
+  hiddenEdges.visible = showHidden;
+  if (contour) contour.hidden.visible = showHidden;
+  if (guides) {
+    guides.visible = state.guides;
+    hiddenGuides.visible = state.guides && showHidden;
+  }
   edgeMaterial.linewidth = state.lineWidth;
   hiddenEdgeMaterial.linewidth = Math.max(1, state.lineWidth * 0.75);
+  guideMaterial.linewidth = Math.max(1, state.lineWidth * 0.6);
+  hiddenGuideMaterial.linewidth = Math.max(1, state.lineWidth * 0.5);
 }
 
 // ---------- camera ----------
@@ -271,6 +518,10 @@ function requestRender() {
 function render() {
   renderQueued = false;
   updateCamera();
+  if (contour) {
+    model.updateMatrixWorld();
+    contour.update();
+  }
   grid.visible = state.grid;
   renderer.render(scene, camera);
   drawOverlay();
@@ -342,21 +593,20 @@ function drawHorizon(w) {
 }
 
 function drawVanishingPoints() {
-  const { dirs, segments } = edgeSegments;
+  const { families, segments } = edgeSegments;
   const worldDir = new THREE.Vector3();
   const pa = new THREE.Vector3();
   const pb = new THREE.Vector3();
-  const labels = ['X', 'Y', 'Z'];
 
   ctx.save();
   ctx.lineWidth = 1;
   ctx.font = `500 11px ${OVERLAY_FONT}`;
 
-  dirs.forEach((dir, family) => {
+  families.forEach(({ dir, label, color: colorIndex }, family) => {
     worldDir.copy(dir).transformDirection(model.matrixWorld);
     const vp = vanishingPoint(worldDir);
     if (!vp) return;
-    const color = palette.vp[family % palette.vp.length];
+    const color = palette.vp[colorIndex];
 
     // Extend each edge in this family to the vanishing point.
     ctx.strokeStyle = color;
@@ -364,7 +614,7 @@ function drawVanishingPoints() {
     ctx.setLineDash([5, 4]);
     ctx.beginPath();
     for (const seg of segments) {
-      if (seg.family !== family) continue;
+      if (seg.family !== family || (seg.guide && !state.guides)) continue;
       const a = projectPoint(pa.copy(seg.a).applyMatrix4(model.matrixWorld));
       const b = projectPoint(pb.copy(seg.b).applyMatrix4(model.matrixWorld));
       const far = Math.hypot(a.x - vp.x, a.y - vp.y) > Math.hypot(b.x - vp.x, b.y - vp.y) ? a : b;
@@ -379,7 +629,7 @@ function drawVanishingPoints() {
     ctx.beginPath();
     ctx.arc(vp.x, vp.y, 4.5, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillText(`VP ${labels[family] ?? family + 1}`, vp.x + 8, vp.y - 8);
+    ctx.fillText(`VP ${label}`, vp.x + 8, vp.y - 8);
   });
 
   ctx.restore();
@@ -504,6 +754,8 @@ const ui = {
   horizon: $('horizon'),
   vanishing: $('vanishing'),
   vanishingRow: $('vanishingRow'),
+  guides: $('guides'),
+  guidesRow: $('guidesRow'),
   grid: $('grid'),
   paper: $('paper'),
   panel: $('panel'),
@@ -513,8 +765,17 @@ const ui = {
 const focalFromSlider = (t) => FOCAL_MIN * Math.pow(FOCAL_MAX / FOCAL_MIN, t / 1000);
 const sliderFromFocal = (f) => Math.round((1000 * Math.log(f / FOCAL_MIN)) / Math.log(FOCAL_MAX / FOCAL_MIN));
 
-for (const shape of SHAPES) {
-  ui.shape.add(new Option(shape.name, shape.id));
+for (const { name, id, group } of SHAPES) {
+  let parent = ui.shape;
+  if (group) {
+    parent = [...ui.shape.querySelectorAll('optgroup')].find((g) => g.label === group);
+    if (!parent) {
+      parent = document.createElement('optgroup');
+      parent.label = group;
+      ui.shape.append(parent);
+    }
+  }
+  parent.append(new Option(name, id));
 }
 
 function syncUI() {
@@ -548,6 +809,11 @@ function syncUI() {
   ui.vanishing.disabled = !vpAvailable;
   ui.vanishingRow.classList.toggle('disabled', !vpAvailable);
   ui.vanishingRow.title = vpAvailable ? '' : 'This shape has no parallel edges to converge';
+  const guidesAvailable = Boolean(guides);
+  ui.guides.checked = state.guides && guidesAvailable;
+  ui.guides.disabled = !guidesAvailable;
+  ui.guidesRow.classList.toggle('disabled', !guidesAvailable);
+  ui.guidesRow.title = guidesAvailable ? '' : 'No construction lines for this shape';
 }
 
 function setMode(mode) {
@@ -577,10 +843,17 @@ function toggleState(key, after) {
   requestRender();
 }
 
-ui.shape.addEventListener('change', () => {
-  loadShape(ui.shape.value);
+function selectShape(id) {
+  loadShape(id);
   history.replaceState(null, '', `#${state.shapeId}`);
-});
+}
+
+function stepShape(by) {
+  const i = SHAPES.findIndex((s) => s.id === state.shapeId);
+  selectShape(SHAPES[(i + by + SHAPES.length) % SHAPES.length].id);
+}
+
+ui.shape.addEventListener('change', () => selectShape(ui.shape.value));
 
 for (const btn of ui.modeButtons) {
   btn.addEventListener('click', () => setMode(btn.dataset.mode));
@@ -590,6 +863,7 @@ bindCheckbox(ui.hiddenEdges, 'hiddenEdges', applyMode);
 bindCheckbox(ui.level, 'level');
 bindCheckbox(ui.horizon, 'horizon');
 bindCheckbox(ui.vanishing, 'vanishing');
+bindCheckbox(ui.guides, 'guides', applyMode);
 bindCheckbox(ui.grid, 'grid');
 bindCheckbox(ui.paper, 'paper', applyPalette);
 
@@ -638,6 +912,9 @@ window.addEventListener('keydown', (e) => {
     p: () => toggleState('paper', applyPalette),
     v: () => hasVanishingPoints() && toggleState('vanishing'),
     l: () => toggleState('horizon'),
+    c: () => guides && toggleState('guides', applyMode),
+    '[': () => stepShape(-1),
+    ']': () => stepShape(1),
   };
   const action = actions[e.key.toLowerCase()];
   if (action) {
