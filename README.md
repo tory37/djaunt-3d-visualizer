@@ -120,6 +120,12 @@ won't work, because browsers block ES modules over `file://`.
 
 Settings → Pages → *Deploy from a branch* → `main` / `/ (root)`.
 
+After changing anything in `css/` or `js/`, run `tools/stamp.sh` before committing.
+It stamps the file links in `index.html` with a version, so browsers pick up the
+new files straight away instead of using their cached copies (GitHub Pages lets
+them cache for 10 minutes). A new module under `js/` also needs an entry in the
+import map in `index.html`.
+
 ## Dependencies
 
 Everything loads from jsDelivr at runtime:
