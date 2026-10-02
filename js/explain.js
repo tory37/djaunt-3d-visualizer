@@ -47,6 +47,13 @@ export function createExplainer(app) {
   };
   const insetCtx = el.inset.getContext('2d');
 
+  // On phones the caption and checklist scroll; fade their bottom edge while
+  // there's more below.
+  const scrollers = [el.text, el.rows.parentElement];
+  const markMore = (node) => node.classList.toggle(
+    'more', node.scrollHeight - node.scrollTop - node.clientHeight > 2);
+  for (const node of scrollers) node.addEventListener('scroll', () => markMore(node), { passive: true });
+
   const steps = buildTimeline(TOUR);
   const total = steps[steps.length - 1].end;
 
@@ -446,6 +453,8 @@ export function createExplainer(app) {
     if (shown[key] === html) return;
     shown[key] = html;
     node.innerHTML = html;
+    // A new step starts its caption from the top (it scrolls on phones).
+    if (key === 'title') el.text.scrollTop = 0;
   }
 
   function update() {
@@ -479,6 +488,7 @@ export function createExplainer(app) {
     }
 
     drawRows(a);
+    scrollers.forEach(markMore);
     const wanted = kind === 'tour' && !driving ? steps[Math.max(0, current)].inset : 'auto';
     drawInset(a, wanted === 'auto' ? autoView(a) : wanted);
     drawProgress();

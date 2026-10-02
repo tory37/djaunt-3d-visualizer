@@ -493,24 +493,39 @@ body.ui-hidden .ui { display: none; }
     right: 0;
     bottom: 0;
     width: auto;
-    max-height: 46%;
+    height: 50%;
+    max-height: none;
     gap: 6px;
     padding: var(--dj-space-3) var(--dj-space-3) max(var(--dj-space-3), env(safe-area-inset-bottom));
     border-radius: var(--dj-radius-lg) var(--dj-radius-lg) 0 0;
   }
   .lesson h2 { font-size: var(--dj-text-base); }
-  .lesson p { min-height: 0; font-size: 0.8125rem; line-height: 1.45; }
+  /* The sheet keeps a fixed height so the view above it doesn't jump between
+     steps; everything keeps its size except the caption, which scrolls. */
+  .lesson > * { flex-shrink: 0; }
+  .lesson p {
+    flex: 1 1 0;
+    min-height: 4.35em;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    font-size: 0.8125rem;
+    line-height: 1.45;
+  }
   .lesson-body {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: var(--dj-space-3);
     align-items: start;
+    height: 112px;
   }
+  .readout { height: 112px; overflow-y: auto; overscroll-behavior: contain; }
+  .lesson p.more,
+  .readout.more { -webkit-mask-image: linear-gradient(#000 70%, transparent); mask-image: linear-gradient(#000 70%, transparent); }
   .readout-head, .readout li { grid-template-columns: 14px 1fr 30px 46px; gap: 6px; }
   .readout ul { font-size: 11px; }
   .wide-only { display: none; }
   .inset { height: 112px; margin-top: 0; }
-  body.lesson-open:not(.ui-hidden) #stage { bottom: 46%; }
+  body.lesson-open:not(.ui-hidden) #stage { bottom: 50%; }
   /* One sheet at a time: the controls cover the explainer while open. */
   body.panel-open .lesson { display: none; }
 
