@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en" data-dj-theme="hoard">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Djaunt 3D Visualizer</title>
+  <meta name="description" content="Rotate, scale and inspect 3D shapes in true perspective for drawing practice.">
+  <meta name="theme-color" content="#0D0C0A">
+  <!-- Djaunt brand: tokens, self-hosted fonts and favicon, straight from the branding repo. -->
+  <link rel="icon" href="https://cdn.jsdelivr.net/gh/tory37/djaunt-branding@main/brand/favicon/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="https://cdn.jsdelivr.net/gh/tory37/djaunt-branding@main/brand/favicon/apple-touch-icon.png">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/tory37/djaunt-branding@main/brand/tokens/tokens.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/tory37/djaunt-branding@main/brand/fonts.css">
+  <link rel="stylesheet" href="css/style.css">
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <div id="stage">
+    <canvas id="scene" aria-label="3D view. Drag to rotate, scroll or pinch to scale."></canvas>
+    <canvas id="overlay" aria-hidden="true"></canvas>
+  </div>
+
+  <div class="ui" id="ui">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark" role="img" aria-label="Djaunt"></span>
+        <span class="brand-text">
+          <span class="eyebrow">Djaunt</span>
+          <h1>3D visualizer</h1>
+        </span>
+      </div>
+
+      <div class="mode-toggle" role="radiogroup" aria-label="Render mode">
+        <button type="button" role="radio" data-mode="solid" aria-checked="true" title="Solid (W)">Solid</button>
+        <button type="button" role="radio" data-mode="wireframe" aria-checked="false" title="Wireframe (W)">Wireframe</button>
+      </div>
+
+      <button type="button" class="btn panel-toggle" id="panelToggle" aria-expanded="true" aria-controls="panel">
+        Controls
+      </button>
+    </header>
+
+    <aside class="panel" id="panel">
+      <section>
+        <h2>Shape</h2>
+        <select id="shapeSelect" aria-label="Shape"></select>
+      </section>
+
+      <section>
+        <h2>Edges</h2>
+        <label class="check" id="hiddenEdgesRow">
+          <input type="checkbox" id="hiddenEdges">
+          <span>Dash hidden edges <small>(wireframe)</small></span>
+        </label>
+        <label class="slider">
+          <span>Line weight <output id="lineWidthOut"></output></span>
+          <input type="range" id="lineWidth" min="1" max="5" step="0.5">
+        </label>
+      </section>
+
+      <section>
+        <h2>Camera</h2>
+        <label class="slider">
+          <span>Lens <output id="focalOut"></output></span>
+          <input type="range" id="focal" min="0" max="1000" step="1">
+        </label>
+        <p class="hint">Shorter lens = stronger foreshortening. The shape keeps its size on screen, so only the perspective changes.</p>
+        <label class="slider">
+          <span>Eye level <output id="elevationOut"></output></span>
+          <input type="range" id="elevation" min="-75" max="75" step="1">
+        </label>
+        <label class="check">
+          <input type="checkbox" id="level">
+          <span>Level camera <small>(verticals stay parallel)</small></span>
+        </label>
+      </section>
+
+      <section>
+        <h2>Pose</h2>
+        <div class="buttons">
+          <button type="button" class="btn" data-preset="one" title="1-point perspective (key 1)">1-point</button>
+          <button type="button" class="btn" data-preset="two" title="2-point perspective (key 2)">2-point</button>
+          <button type="button" class="btn" data-preset="three" title="3-point perspective (key 3)">3-point</button>
+          <button type="button" class="btn" data-preset="random" title="Random orientation (key N)">Random</button>
+          <button type="button" class="btn" data-preset="reset" title="Reset everything (key R)">Reset</button>
+        </div>
+      </section>
+
+      <section>
+        <h2>Guides</h2>
+        <label class="check"><input type="checkbox" id="horizon"><span>Horizon line</span></label>
+        <label class="check" id="vanishingRow"><input type="checkbox" id="vanishing"><span>Vanishing points</span></label>
+        <label class="check"><input type="checkbox" id="grid"><span>Ground grid</span></label>
+        <label class="check"><input type="checkbox" id="paper"><span>Paper background</span></label>
+      </section>
+
+      <section class="help">
+        <h2>Controls</h2>
+        <dl>
+          <dt>Drag</dt><dd>Rotate</dd>
+          <dt>Shift + drag</dt><dd>Spin in the picture plane</dd>
+          <dt>Scroll / pinch</dt><dd>Scale</dd>
+          <dt>W</dt><dd>Toggle solid / wireframe</dd>
+          <dt>1 2 3</dt><dd>Perspective presets</dd>
+          <dt>N / R</dt><dd>Random pose / reset</dd>
+          <dt>G L V P</dt><dd>Grid, horizon, vanishing points, paper</dd>
+          <dt>H</dt><dd>Hide all controls</dd>
+        </dl>
+      </section>
+    </aside>
+  </div>
+
+  <noscript><p class="fallback">This page needs JavaScript and WebGL.</p></noscript>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

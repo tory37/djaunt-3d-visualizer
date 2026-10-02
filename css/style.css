@@ -1,0 +1,309 @@
+/* Djaunt 3D Visualizer. Colors, type, space and motion all come from the
+   Djaunt brand tokens (tokens.css, loaded in index.html); no raw hex here. */
+
+/* Scene colors, read by js/main.js. */
+:root {
+  --mark-color: var(--dj-accent);
+  --face-color: var(--dj-bone-400);
+  --grid-color: var(--dj-ink-400);
+}
+/* Paper mode: the brand's single light (parchment) variant. Mark goes ink on light. */
+.dj-light {
+  --mark-color: var(--dj-text);
+  --face-color: var(--dj-bone-300);
+  --grid-color: var(--dj-border);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--dj-bg);
+  color: var(--dj-text);
+  font-family: var(--dj-font-body);
+  font-size: var(--dj-text-sm);
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+}
+
+#stage {
+  position: fixed;
+  inset: 0;
+}
+#scene, #overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+#scene {
+  display: block;
+  touch-action: none;
+  cursor: grab;
+}
+#scene.dragging { cursor: grabbing; }
+
+#overlay { pointer-events: none; }
+
+button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+/* ---------- top bar ---------- */
+
+.topbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: var(--dj-space-3);
+  padding: max(var(--dj-space-3), env(safe-area-inset-top)) var(--dj-space-4) var(--dj-space-3);
+  pointer-events: none;
+}
+.topbar > * { pointer-events: auto; }
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: var(--dj-space-3);
+  justify-self: start;
+  color: inherit;
+  text-decoration: none;
+}
+
+.brand-mark {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  background: var(--mark-color);
+  -webkit-mask: url('https://cdn.jsdelivr.net/gh/tory37/djaunt-branding@main/brand/logo/djaunt-icon.svg') center / contain no-repeat;
+  mask: url('https://cdn.jsdelivr.net/gh/tory37/djaunt-branding@main/brand/logo/djaunt-icon.svg') center / contain no-repeat;
+}
+
+.eyebrow {
+  display: block;
+  font-family: var(--dj-font-mono);
+  font-size: var(--dj-text-xs);
+  font-weight: 500;
+  letter-spacing: var(--dj-tracking-label);
+  text-transform: uppercase;
+  color: var(--dj-text-muted);
+}
+
+.brand h1 {
+  margin: 0;
+  font-family: var(--dj-font-display);
+  font-size: var(--dj-text-lg);
+  font-weight: 700;
+  letter-spacing: var(--dj-tracking-display);
+  line-height: var(--dj-leading-tight);
+}
+
+/* Solid / wireframe: the primary control, so it gets the view's one glow. */
+.mode-toggle {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  background: var(--dj-surface);
+  border-radius: var(--dj-radius-md);
+  box-shadow: var(--dj-shadow-md), var(--dj-glow);
+}
+.mode-toggle button {
+  font-family: var(--dj-font-mono);
+  font-size: var(--dj-text-xs);
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--dj-text-muted);
+  background: var(--dj-surface);
+  border: var(--dj-border-width) solid var(--dj-border);
+  padding: var(--dj-space-2) var(--dj-space-4);
+  transition: color var(--dj-dur-base) var(--dj-ease),
+              border-color var(--dj-dur-base) var(--dj-ease),
+              background var(--dj-dur-base) var(--dj-ease);
+}
+.mode-toggle button:first-child { border-radius: var(--dj-radius-md) 0 0 var(--dj-radius-md); }
+.mode-toggle button:last-child { border-radius: 0 var(--dj-radius-md) var(--dj-radius-md) 0; border-left: none; }
+.mode-toggle button[aria-checked="true"] {
+  color: var(--dj-accent-hi);
+  background: var(--dj-surface-raised);
+  border-color: var(--dj-accent);
+  border-left: var(--dj-border-width) solid var(--dj-accent);
+}
+
+.btn {
+  font-family: var(--dj-font-mono);
+  font-size: var(--dj-text-xs);
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--dj-text);
+  background: var(--dj-surface);
+  border: var(--dj-border-width) solid var(--dj-border);
+  border-radius: var(--dj-radius-sm);
+  padding: var(--dj-space-2) var(--dj-space-3);
+  transition: border-color var(--dj-dur-base) var(--dj-ease),
+              color var(--dj-dur-base) var(--dj-ease),
+              background var(--dj-dur-base) var(--dj-ease);
+}
+.btn:hover {
+  border-color: var(--dj-accent);
+  color: var(--dj-accent-hi);
+  background: var(--dj-surface-raised);
+}
+.panel-toggle {
+  justify-self: end;
+  box-shadow: var(--dj-shadow-md);
+}
+.panel-toggle[aria-expanded="true"] { border-color: var(--dj-accent); }
+
+/* ---------- side panel ---------- */
+
+.panel {
+  position: fixed;
+  top: 68px;
+  right: var(--dj-space-4);
+  width: 280px;
+  max-height: calc(100% - 84px);
+  overflow-y: auto;
+  padding: 0 var(--dj-space-4);
+  background: var(--dj-surface);
+  border: var(--dj-border-width) solid var(--dj-border);
+  border-radius: var(--dj-radius-lg);
+  box-shadow: var(--dj-shadow-lg);
+}
+.panel[hidden] { display: none; }
+
+.panel section {
+  padding: var(--dj-space-4) 0;
+  border-bottom: var(--dj-border-width) solid var(--dj-border);
+}
+.panel section:last-child { border-bottom: 0; }
+
+.panel h2 {
+  margin: 0 0 var(--dj-space-2);
+  font-family: var(--dj-font-mono);
+  font-size: var(--dj-text-xs);
+  font-weight: 500;
+  letter-spacing: var(--dj-tracking-label);
+  text-transform: uppercase;
+  color: var(--dj-text-muted);
+}
+
+.panel select {
+  width: 100%;
+  font: inherit;
+  padding: 7px var(--dj-space-2);
+  border-radius: var(--dj-radius-sm);
+  border: var(--dj-border-width) solid var(--dj-border);
+  background: var(--dj-surface-raised);
+  color: var(--dj-text);
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: var(--dj-space-2);
+  padding: var(--dj-space-1) 0;
+  cursor: pointer;
+}
+.check input { accent-color: var(--dj-accent); margin: 0; width: 16px; height: 16px; }
+.check.disabled { opacity: 0.45; cursor: default; }
+small { color: var(--dj-text-muted); }
+
+.slider { display: block; padding: var(--dj-space-1) 0; }
+.slider > span {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 2px;
+}
+.slider output {
+  font-family: var(--dj-font-mono);
+  font-size: var(--dj-text-xs);
+  color: var(--dj-text-muted);
+}
+.slider input { width: 100%; accent-color: var(--dj-accent); margin: 0; }
+
+.hint {
+  margin: 2px 0 var(--dj-space-2);
+  font-size: var(--dj-text-xs);
+  line-height: 1.5;
+  color: var(--dj-text-muted);
+}
+
+.buttons {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--dj-space-2);
+}
+.buttons .btn { padding: var(--dj-space-2) var(--dj-space-1); }
+
+.help dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--dj-space-1) var(--dj-space-3);
+  margin: 0;
+  font-size: var(--dj-text-xs);
+}
+.help dt {
+  font-family: var(--dj-font-mono);
+  color: var(--dj-text);
+  white-space: nowrap;
+}
+.help dd { margin: 0; color: var(--dj-text-muted); }
+
+button:focus-visible, select:focus-visible, input:focus-visible {
+  outline: 2px solid var(--dj-accent);
+  outline-offset: 2px;
+}
+
+/* H hides every control for a clean reference view. */
+body.ui-hidden .ui { display: none; }
+
+.fallback {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  padding: var(--dj-space-4);
+  text-align: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; }
+}
+
+/* ---------- phones ---------- */
+
+@media (max-width: 640px) {
+  .topbar {
+    grid-template-columns: auto 1fr auto;
+    padding-left: var(--dj-space-3);
+    padding-right: var(--dj-space-3);
+  }
+  .brand-text { display: none; }
+  .mode-toggle { justify-self: center; }
+  .mode-toggle button { padding: var(--dj-space-2) var(--dj-space-3); }
+
+  .panel {
+    top: auto;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: auto;
+    max-height: 48%;
+    border-radius: var(--dj-radius-lg) var(--dj-radius-lg) 0 0;
+    padding-bottom: max(var(--dj-space-3), env(safe-area-inset-bottom));
+  }
+  /* Keep the shape in view above the open controls sheet. */
+  body.panel-open:not(.ui-hidden) #stage { bottom: 48%; }
+}
