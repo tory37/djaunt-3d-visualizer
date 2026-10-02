@@ -27,35 +27,39 @@ sphere and torus.
 
 ## Explainer
 
-**Explain** plays a three-minute tour on the cube, aimed at drawing it rather
-than at the theory. It turns the cube, moves your eye and changes the lens,
-while captions and marks on the view show what to look for and check:
+**Explain** plays a tour on the cube built around rules of thumb to carry in
+your head when you imagine or draw a box, not measurements. Each step shows
+one idea in motion, with a short fixed caption saying what's happening and a
+highlighted rule to remember:
 
-- **One face opens, the other narrows.** A face near square-on changes slowly
-  and a face near edge-on changes fast, so the narrow face shows the turn.
-  Compare the two face widths: 1 : 1 is a 45° turn, about 1 : 2 is 30°,
-  about 1 : 4 is 15°.
-- **Narrow face, steep edges.** The narrower a face looks, the harder its edges
-  converge. The two VPs slide along the horizon together, 90° apart seen from
-  your eye.
-- **Near edge tallest.** Every vertical behind the near corner is shorter, and
-  the panel says by how much.
-- **Edges slope toward eye level.** Check angles against a level pencil.
-- **Find the middle** of a face by crossing its diagonals. The near half looks
-  bigger.
-- **3-point:** verticals lean in slightly toward a third VP.
-- **Close up or far away:** close VPs mean dramatic convergence and a big
-  object; far ones mean nearly parallel edges and a small object.
-- **Stay inside the cone of vision:** the angles at a box's near corner never
-  look sharper than 90°. If they do, the box is too far from the horizon for
-  how close its VPs are.
+- **Your eye level is the horizon.** Flat edges running away meet on it.
+- **The faces trade width.** One face opens as the other closes; get the thin
+  face right first, since it changes fastest.
+- **Thin face, steep edges.** Thin face: close VP. Wide face: far VP.
+- **The VPs slide as a pair.** Turn the box, slide both VPs together; seen from
+  your eye they stay 90° apart.
+- **Corners ride a circle.** As a box spins, its corners travel around an
+  ellipse. To turn a box in your head, draw the ellipse, then set the corners
+  on it.
+- **The near corner leads.** It's the tallest edge; draw it first.
+- **Edges converge, never spread.**
+- **Far from eye level, more you see.** Near the horizon, flat; far from it, open.
+- **Never sharper than 90°.** A sharper near corner means the VPs are too close.
+- **Close is dramatic, far is calm.**
+- **Look down, verticals pinch** (3-point), usually subtly.
+- **An X finds the middle** of a face.
+- **Any angle, same rules.**
 
-Drag the cube at any point and the tour pauses. The panel then measures your
-own view instead, and play picks the tour back up. **Explain as I rotate**
-(`E`) gives the same live readout without the tour. For the cube and box it's
-a checklist to hold against your own drawing: face width ratio, far corners
-compared with the near one, the angle at the near corner, how open the top is,
-edge slopes, and how far the verticals lean.
+Drag the cube at any point and the tour pauses; play picks it back up.
+**Explain as I rotate** (`E`) narrates your own view instead, naming the
+ideas that apply to it (which face is thin, where your eye is, whether the
+near corner has gone sharp). The words change only when the situation does.
+
+For the cube and box, the panel also has an optional checklist of
+measurements to hold against a drawing: face width ratio, far corners
+compared with the near one, the angle at the near corner, how open the top
+is, edge slopes, and how far the verticals lean. Phones leave it out during
+the tour.
 
 Other things on screen while the explainer is open:
 
@@ -67,12 +71,12 @@ Other things on screen while the explainer is open:
   point is where its sight line meets the picture plane, and sight lines
   through the corners show where each face's width on the page comes from.
 
-All the numbers are measured from the live 3D view. The advice follows what
+The measurements come from the live 3D view. The rules follow what
 perspective teachers commonly teach: Drawabox's box lessons (edges converge
 as a set; VP distance sets how dramatic the foreshortening is), Marshall
 Vandruff's perspective course (eye level, station point, cone of vision),
-sighting with a pencil at arm's length, and the classic rule that a box's
-front corner never looks sharper than 90°.
+sighting with a pencil at arm's length, rotating a box inside an ellipse, and
+the classic rule that a box's front corner never looks sharper than 90°.
 
 The tour script lives in [`js/tour.js`](js/tour.js) and the drawing checks in
 [`js/drawing.js`](js/drawing.js).

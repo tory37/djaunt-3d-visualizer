@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { TOUR, START } from './tour.js';
-import { measureBox, say as measured, checks, drawMarks } from './drawing.js';
+import { measureBox, checks, drawMarks, SHARP } from './drawing.js';
 
 /**
  * The explainer: a card that narrates what the perspective is doing.
@@ -35,6 +35,7 @@ export function createExplainer(app) {
     eyebrow: $('lessonEyebrow'),
     title: $('lessonTitle'),
     text: $('lessonText'),
+    rule: $('lessonRule'),
     rows: $('lessonRows'),
     rowsHead: $('lessonRowsHead'),
     inset: $('lessonInset'),
@@ -241,6 +242,7 @@ export function createExplainer(app) {
     playing = false;
     driving = true;
     blend = null;
+    shown.liveText = null;
     app.setLevelMix(null);
     refreshControls();
   }
@@ -249,6 +251,7 @@ export function createExplainer(app) {
 
   function show(newKind) {
     kind = newKind;
+    shown.liveText = null;
     playing = false;
     driving = false;
     blend = null;
@@ -356,13 +359,17 @@ export function createExplainer(app) {
 
   function eyeSentence(a) {
     if (!a.upright) return '';
+    const thing = app.shape().id === 'cube' ? 'cube' : 'shape';
     return {
-      above: 'Right now your eye is above the cube, so you look down onto its top.',
-      through: 'Right now the horizon cuts through the cube: its top and bottom are edge-on, so you see neither.',
-      below: 'Right now your eye is below the cube, so you see its underside.',
-    }[a.eyeLevel].replace(/cube/g, app.shape().id === 'cube' ? 'cube' : 'shape');
+      above: `Your eye is above the ${thing}, so you see its top, opening up the higher you go.`,
+      through: `Your eye level runs through the ${thing}: its top and bottom are edge-on, just lines.`,
+      below: `Your eye is below the ${thing}, so you see its underside.`,
+    }[a.eyeLevel];
   }
 
+  // Live narration: the ideas that apply to the view right now, in words
+  // rather than numbers (the measurements are in the checklist). It only
+  // changes when the situation does, like a different face turning thin.
   function narrate(a) {
     // Curved shapes have no straight edges: their sets are construction lines.
     const edges = app.shape().curved ? 'lines' : 'edges';
@@ -374,80 +381,69 @@ export function createExplainer(app) {
     if (n > 3) title = `${n} vanishing points`;
     else if (n > 0) title = `${n}-point perspective`;
 
+    const tilted = a.upright && !a.levelView && a.families.find((f) => f.label === 'Y' && f.status !== 'parallel');
+    const view = tilted
+      ? `Your view is tilted, so vertical ${edges} lean toward a third vanishing point.`
+      : eyeSentence(a);
+
+    const box = a.box;
+    if (box && box.kind !== 'none') return { title, text: boxAdvice(a, box, view) };
+
     let structure = '';
     if (parallel.length) {
       structure += `${list(parallel)} ${edges} lie flat to the picture plane, so they stay parallel. `;
     }
     if (n === 1) {
-      structure += `${parallel.length ? 'Only the' : 'The'} ${chip(converging[0])} ${edges} run into the page; they meet at VP ${chip(converging[0])}.`;
+      structure += `${parallel.length ? 'Only the' : 'The'} ${chip(converging[0])} ${edges} run away from you; they meet at one vanishing point.`;
     } else if (n > 1) {
-      structure += `${list(converging)} ${edges} run into the page, each set toward its own vanishing point.`;
+      structure += `${list(converging)} ${edges} run away from you, each set toward its own vanishing point.`;
     }
-
-    let tip = '';
     const far = converging.filter((f) => f.status === 'far');
-    const off = converging.filter((f) => f.status === 'off');
-    if (far.length) {
-      tip = `${list(far)} ${edges} only just turn away, so ${far.length > 1 ? 'their VPs are' : 'that VP is'} far off the page: draw them nearly parallel.`;
-    } else if (off.length) {
-      tip = `VP ${list(off)} ${off.length > 1 ? 'are' : 'is'} off the page: mark ${off.length > 1 ? 'them' : 'it'} on scrap paper taped beside your drawing.`;
-    }
-
-    let foreshortening = '';
-    const most = [...a.families].sort((p, q) => p.length - q.length)[0];
-    if (most && most.length < 0.85) {
-      foreshortening = `${chip(most)} ${edges} point most toward you, so they’re the most foreshortened: ${Math.round(most.length * 100)}% of their full length.`;
-    }
-
-    let view = '';
-    const vertical = a.families.find((f) => f.label === 'Y');
-    if (a.upright && !a.levelView && vertical && vertical.status !== 'parallel') {
-      view = `Your view is tilted, so the page is too: vertical ${edges} converge as well.`;
-    } else if (a.upright) {
-      view = eyeSentence(a);
-    }
-
-    const box = a.box;
-    if (box && box.kind !== 'none') {
-      return { title, structure, text: boxAdvice(a, box) };
-    }
-
-    return {
-      title,
-      structure,
-      text: [structure, tip, foreshortening, view].filter(Boolean).join(' '),
-    };
+    const tip = far.length
+      ? `${list(far)} ${edges} only just turn away, so draw them nearly parallel.`
+      : '';
+    return { title, text: [structure, tip, view].filter(Boolean).join(' ') };
   }
 
-  // Live advice for a box: what to compare on your own drawing.
-  function boxAdvice(a, m) {
-    // Live text is always "right now", so drop the tour's lead-in.
-    const plain = (str) => str.replace(/^Right now (\w)/, (match, c) => c.toUpperCase());
-    let parts = [];
+  // The ideas that apply to a box in this view.
+  function boxAdvice(a, m, view) {
     if (m.kind === 'two') {
-      parts = [
-        measured.faces(m),
-        measured.heights(m),
-        measured.corner(m),
-        a.levelView ? measured.open(m, a.eyeLevel) : measured.lean(m),
-      ];
-    } else if (m.kind === 'one') {
-      parts = [
-        'The front face is square-on: draw its true shape, and aim every edge going back at one VP.',
-        measured.heights(m),
-        measured.open(m, a.eyeLevel),
-      ];
-    } else if (m.kind === 'tilted') {
-      parts = [
-        'Three faces meet at the near corner.',
-        measured.corner(m),
-        'Near edges are longer than far ones, and each set of edges converges toward its own VP.',
-      ];
+      const r = Math.min(m.left.width, m.right.width) / Math.max(m.left.width, m.right.width);
+      const thin = m.left.width < m.right.width ? 'left' : 'right';
+      const faces = r > 0.8
+        ? 'The two faces are about equal, so the box is near 45°: the vanishing points sit about as far out on each side.'
+        : `The ${thin} face is the thin one: its edges tilt hardest, toward the closer vanishing point.`;
+      const corner = m.flatAngle && m.flatAngle < SHARP
+        ? 'The near corner is sharper than 90°, so the box looks stretched: it’s far from the centre of view.'
+        : 'Draw the near corner first: it’s the tallest edge.';
+      return [faces, corner, view].filter(Boolean).join(' ');
     }
-    return parts.filter(Boolean).map(plain).join(' ');
+    if (m.kind === 'one') {
+      return ['Square-on: draw the front face’s true shape. Edges running away meet at one vanishing point on the horizon.', view]
+        .filter(Boolean).join(' ');
+    }
+    const sharp = m.angles && m.angles.min < SHARP
+      ? ' One angle at the near corner is sharper than 90°, so the box looks stretched.'
+      : ' None of the angles at the near corner should look sharper than 90°.';
+    return `Three faces meet at the near corner, and each set of edges heads toward its own vanishing point.${sharp}`;
   }
 
   // ---------- drawing the card ----------
+
+  // True once the live narration has held still for a moment, so passing
+  // through a borderline view doesn't flicker the text.
+  let pending = { text: null, since: 0 };
+  function settled(text) {
+    const now = performance.now();
+    if (shown.liveText == null || shown.liveText === text) return (shown.liveText = text), true;
+    if (pending.text !== text) pending = { text, since: now };
+    if (now - pending.since < 600) {
+      app.requestRender();
+      return false;
+    }
+    shown.liveText = text;
+    return true;
+  }
 
   function write(key, node, html) {
     if (shown[key] === html) return;
@@ -466,26 +462,21 @@ export function createExplainer(app) {
       const eyebrow = !driving ? 'Live · drag to explore'
         : time >= total ? 'Your turn · drag to explore' : 'Tour paused · you’re driving';
       write('eyebrow', el.eyebrow, eyebrow);
-      write('title', el.title, live.title);
-      write('text', el.text, live.text || 'This shape has no parallel edges, so there are no vanishing points to track.');
+      const text = live.text || 'This shape has no parallel edges, so there are no vanishing points to track.';
+      if (settled(`${live.title}\n${text}`)) {
+        write('title', el.title, live.title);
+        write('text', el.text, text);
+      }
     } else {
       const s = steps[current < 0 ? 0 : current];
-      const say = {
-        eye: () => eyeSentence(a),
-        now: () => (live.structure ? `Right now: ${live.structure}` : ''),
-        faces: () => measured.faces(a.box),
-        heights: () => measured.heights(a.box),
-        corner: () => measured.corner(a.box),
-        open: () => measured.open(a.box, a.eyeLevel),
-        slopes: () => measured.slopes(a.box),
-        lean: () => measured.lean(a.box),
-        centre: () => measured.centre(a.box),
-      };
-      const text = typeof s.text === 'function' ? s.text(a, say) : s.text;
       write('eyebrow', el.eyebrow, `Tour · ${current + 1} / ${steps.length}`);
       write('title', el.title, s.title);
-      write('text', el.text, format(text, a));
+      write('text', el.text, format(s.text, a));
+      write('rule', el.rule, s.remember ?? '');
     }
+    el.rule.hidden = !(kind === 'tour' && !driving && shown.rule);
+    // On phones the tour leaves out the checklist, to give the ideas room.
+    el.root.dataset.mode = kind === 'tour' && !driving ? 'tour' : 'live';
 
     drawRows(a);
     scrollers.forEach(markMore);
@@ -561,7 +552,7 @@ export function createExplainer(app) {
     const m = measureBox(app, fams);
     const t = readTokens();
     const colors = { ...t, text: app.palette.line, bg: app.palette.bg, accent: app.palette.horizon };
-    drawMarks(ctx, m, currentMarks(m), colors, app.viewSize());
+    drawMarks(ctx, m, currentMarks(m), colors, app.viewSize(), kind === 'tour' && !driving);
   }
 
   function buildProgress() {

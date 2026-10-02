@@ -213,7 +213,8 @@ button {
   border-radius: var(--dj-radius-lg);
   box-shadow: var(--dj-shadow-lg);
 }
-.lesson[hidden] { display: none; }
+.lesson[hidden],
+.lesson .remember[hidden] { display: none; }
 
 .lesson-head {
   display: flex;
@@ -235,6 +236,14 @@ button {
   margin: 0;
   min-height: 9em; /* keeps the card from jumping between steps */
   line-height: 1.5;
+}
+/* The tour step's rule of thumb. */
+.lesson .remember {
+  min-height: 0;
+  padding-left: var(--dj-space-2);
+  border-left: 2px solid var(--dj-accent);
+  color: var(--dj-accent);
+  font-weight: 600;
 }
 
 .chip {
@@ -495,7 +504,7 @@ body.ui-hidden .ui { display: none; }
     width: auto;
     height: 50%;
     max-height: none;
-    gap: 6px;
+    gap: 5px;
     padding: var(--dj-space-3) var(--dj-space-3) max(var(--dj-space-3), env(safe-area-inset-bottom));
     border-radius: var(--dj-radius-lg) var(--dj-radius-lg) 0 0;
   }
@@ -504,12 +513,12 @@ body.ui-hidden .ui { display: none; }
      steps; everything keeps its size except the caption, which scrolls. */
   .lesson > * { flex-shrink: 0; }
   .lesson p {
-    flex: 1 1 0;
+    flex: 0 1 auto;
     min-height: 4.35em;
     overflow-y: auto;
     overscroll-behavior: contain;
     font-size: 0.8125rem;
-    line-height: 1.45;
+    line-height: 1.4;
   }
   .lesson-body {
     display: grid;
@@ -517,8 +526,13 @@ body.ui-hidden .ui { display: none; }
     gap: var(--dj-space-3);
     align-items: start;
     height: 112px;
+    margin-top: auto; /* spare room goes between the words and the diagram */
   }
   .readout { height: 112px; overflow-y: auto; overscroll-behavior: contain; }
+  .lesson .remember { flex: none; overflow: visible; font-size: 0.8125rem; line-height: 1.4; }
+  .lesson[data-mode="tour"] .readout { display: none; }
+  .lesson[data-mode="tour"] .lesson-body { grid-template-columns: 1fr; height: 92px; }
+  .lesson[data-mode="tour"] .inset { height: 92px; }
   .lesson p.more,
   .readout.more { -webkit-mask-image: linear-gradient(#000 70%, transparent); mask-image: linear-gradient(#000 70%, transparent); }
   .readout-head, .readout li { grid-template-columns: 14px 1fr 30px 46px; gap: 6px; }

@@ -14,7 +14,7 @@ const deg = THREE.MathUtils.radToDeg;
 const SIGNS = [-1, 1];
 // The rule teachers give: no angle at a box's near corner looks sharper than a
 // right angle. A sharper one means the VPs are too close together.
-const SHARP = 89.5;
+export const SHARP = 89.5;
 
 export function measureBox(app, families) {
   if (!app.shape().cuboid) return null;
@@ -41,6 +41,19 @@ export function measureBox(app, families) {
   };
 
   const upright = new THREE.Vector3(0, 1, 0).applyQuaternion(model.quaternion).y > 0.999;
+  // The circles the top and bottom corners travel around as the box spins.
+  const ring = (y) => {
+    const cx = (min.x + max.x) / 2;
+    const cz = (min.z + max.z) / 2;
+    const r = Math.hypot((max.x - min.x) / 2, (max.z - min.z) / 2);
+    const pts = [];
+    for (let i = 0; i <= 72; i++) {
+      const t = (i / 72) * Math.PI * 2;
+      pts.push(app.projectPoint(new THREE.Vector3(cx + r * Math.cos(t), y, cz + r * Math.sin(t)).applyMatrix4(model.matrixWorld)));
+    }
+    return pts;
+  };
+  const rings = upright ? [ring(max.y), ring(min.y)] : null;
   const flat = sy > 0 ? 'top' : sy < 0 ? 'base' : null;
   const opening = (y) => {
     const pts = [corner(-1, y, -1), corner(1, y, -1), corner(1, y, 1), corner(-1, y, 1)];
@@ -83,6 +96,7 @@ export function measureBox(app, families) {
       open: flat ? opening(sy) : 0,
       angles: sy ? cornerAngles(corner(sx, sy, sz), [corner(-sx, sy, sz), corner(sx, -sy, sz), corner(sx, sy, -sz)]) : null,
       flatAngle: sy ? angleAt(corner(sx, sy, sz), corner(-sx, sy, sz), corner(sx, sy, -sz)) : null,
+      rings,
       bounds,
     };
   }
@@ -101,6 +115,7 @@ export function measureBox(app, families) {
       backRatio: avg(back) / avg(front),
       flat,
       open: flat ? opening(sy) : 0,
+      rings,
       bounds,
     };
   }
@@ -159,72 +174,6 @@ export function widthRatio(m) {
   return `${one(m.left.width / narrow)} : ${one(m.right.width / narrow)}`;
 }
 
-function fraction(r) {
-  if (r >= 0.9) return 'about the same width as';
-  if (r >= 0.7) return 'about three-quarters the width of';
-  if (r >= 0.58) return 'about two-thirds the width of';
-  if (r >= 0.42) return 'about half the width of';
-  if (r >= 0.29) return 'about a third the width of';
-  if (r >= 0.21) return 'about a quarter the width of';
-  return 'only a sliver next to';
-}
-
-export const say = {
-  faces(m) {
-    if (m?.kind !== 'two') return '';
-    const leftNarrow = m.left.width < m.right.width;
-    const [narrow, wide] = leftNarrow ? ['left', 'right'] : ['right', 'left'];
-    const r = Math.min(m.left.width, m.right.width) / Math.max(m.left.width, m.right.width);
-    if (r >= 0.9) return `Right now both faces are about the same width (${widthRatio(m)}).`;
-    return `Right now the ${narrow} face is ${fraction(r)} the ${wide} face (${widthRatio(m)}).`;
-  },
-  heights(m) {
-    if (m?.kind === 'two') {
-      return `The far corners are ${pct(m.left.height)} and ${pct(m.right.height)} as tall as the near one.`;
-    }
-    if (m?.kind === 'one') return `Here the back face is ${pct(m.backRatio)} the size of the front.`;
-    return '';
-  },
-  corner(m) {
-    if (m?.kind === 'two' && m.flatAngle) {
-      const c = m.flatAngle;
-      return `The ${m.flat}’s near corner measures ${degrees(c)}${c < SHARP ? ': sharper than 90°, so the VPs are too close and the box looks stretched' : ''}.`;
-    }
-    const angles = m?.angles;
-    if (angles) {
-      return `The angles around the near corner are ${angles.list.map(degrees).join(', ')}${angles.min < SHARP ? ': one is sharper than 90°, so the VPs are too close and the box looks stretched' : ''}.`;
-    }
-    return '';
-  },
-  open(m, eyeLevel) {
-    if (!m || m.kind === 'tilted' || m.kind === 'none') return '';
-    if (eyeLevel === 'through') {
-      return 'Right now your eye level passes through the box: the top and base are both edge-on, just lines.';
-    }
-    const p = pct(m.open);
-    return eyeLevel === 'above'
-      ? `Right now the top is open ${p}: its depth is ${p} of its width. It gets thinner as it nears eye level.`
-      : `Right now you see the base, open ${p}: its depth is ${p} of its width.`;
-  },
-  slopes(m) {
-    if (m?.kind !== 'two') return '';
-    const pair = (key) => `${degrees(m.left[key].angle)} and ${degrees(m.right[key].angle)}`;
-    return `Top edges slope ${pair('slopeTop')} ${m.left.slopeTop.dir}ward to the VPs; base edges slope ${pair('slopeBase')} ${m.left.slopeBase.dir}ward.`;
-  },
-  centre(m) {
-    if (m?.kind !== 'two') return '';
-    const wide = m.left.width > m.right.width ? m.left : m.right;
-    const side = wide === m.left ? 'left' : 'right';
-    return `Crossing the ${side} face’s diagonals finds its centre: the near half takes ${pct(wide.nearHalf)} of the face’s width, the far half ${pct(1 - wide.nearHalf)}.`;
-  },
-  lean(m) {
-    if (m?.kind !== 'two') return '';
-    const most = Math.max(m.left.lean, m.right.lean);
-    if (most < 0.5) return 'The verticals stay vertical.';
-    return `The outer verticals lean ${degrees(m.left.lean)} and ${degrees(m.right.lean)}.`;
-  },
-};
-
 // Rows for the card's checklist.
 export function checks(m, eyeLevel) {
   if (!m) return null;
@@ -264,8 +213,11 @@ function openRow(m, eyeLevel) {
  *   corner   the angle at the near corner
  *   slopes   a level pencil line through the near corner, with edge angles
  *   lean     true verticals beside the outer edges (3-point)
+ *   ring     the ellipses the top and bottom corners ride as the box spins
+ * With `plain` set (the tour), the marks are drawn without their numbers,
+ * except the corner angle: the ideas matter there, not the measurements.
  */
-export function drawMarks(ctx, m, marks, colors, view) {
+export function drawMarks(ctx, m, marks, colors, view, plain = false) {
   if (!m || !marks?.length) return;
   ctx.save();
   ctx.font = `500 11px ${colors.font}`;
@@ -280,6 +232,8 @@ export function drawMarks(ctx, m, marks, colors, view) {
     ctx.fillStyle = color;
     ctx.fillText(str, x, y);
   };
+  // A measurement's label, left out in plain mode.
+  const num = (...args) => { if (!plain) label(...args); };
   const seg = (x0, y0, x1, y1) => {
     ctx.beginPath();
     ctx.moveTo(x0, y0);
@@ -303,17 +257,17 @@ export function drawMarks(ctx, m, marks, colors, view) {
         ctx.lineWidth = 2;
         seg(near.bottom.x, y, f.outer.bottom.x, y);
         seg(f.outer.bottom.x, y - 5, f.outer.bottom.x, y + 5);
-        label(one(f.width / narrow), (near.bottom.x + f.outer.bottom.x) / 2, y + 12, 'center', f.color);
+        num(one(f.width / narrow), (near.bottom.x + f.outer.bottom.x) / 2, y + 12, 'center', f.color);
       }
       ctx.strokeStyle = colors.text;
       seg(near.bottom.x, y - 5, near.bottom.x, y + 5);
     }
 
     if (marks.includes('heights')) {
-      label('100%', near.bottom.x, near.bottom.y + 13);
+      label(plain ? 'tallest' : '100%', near.bottom.x, near.bottom.y + 13);
       for (const f of [left, right]) {
         const outside = f === left ? -8 : 8;
-        label(pct(f.height), f.outer.x + outside, (f.outer.top.y + f.outer.bottom.y) / 2, f === left ? 'right' : 'left');
+        num(pct(f.height), f.outer.x + outside, (f.outer.top.y + f.outer.bottom.y) / 2, f === left ? 'right' : 'left');
       }
     }
 
@@ -330,8 +284,8 @@ export function drawMarks(ctx, m, marks, colors, view) {
         const outside = f === left ? -6 : 6;
         const align = f === left ? 'right' : 'left';
         const edgeX = f === left ? Math.min(f.outer.top.x, f.outer.bottom.x) : Math.max(f.outer.top.x, f.outer.bottom.x);
-        label(degrees(f.slopeTop.angle), edgeX + outside, f.outer.top.y + (f.slopeTop.dir === 'down' ? -9 : 9), align, colors.accent);
-        label(degrees(f.slopeBase.angle), edgeX + outside, f.outer.bottom.y + (f.slopeBase.dir === 'down' ? -9 : 9), align, colors.accent);
+        num(degrees(f.slopeTop.angle), edgeX + outside, f.outer.top.y + (f.slopeTop.dir === 'down' ? -9 : 9), align, colors.accent);
+        num(degrees(f.slopeBase.angle), edgeX + outside, f.outer.bottom.y + (f.slopeBase.dir === 'down' ? -9 : 9), align, colors.accent);
       }
     }
 
@@ -352,7 +306,7 @@ export function drawMarks(ctx, m, marks, colors, view) {
         ctx.lineWidth = 1.5;
         seg(top.x, top.y, bottom.x, bottom.y);
         ctx.globalAlpha = 1;
-        label(`${pct(f.nearHalf)} | ${pct(1 - f.nearHalf)}`, f.centre.x, bottom.y + 12, 'center', f.color);
+        num(`${pct(f.nearHalf)} | ${pct(1 - f.nearHalf)}`, f.centre.x, bottom.y + 12, 'center', f.color);
       }
     }
 
@@ -365,7 +319,7 @@ export function drawMarks(ctx, m, marks, colors, view) {
         seg(b.x, b.y, b.x, f.outer.top.y);
         const outside = f === left ? -8 : 8;
         const x = f === left ? Math.min(f.outer.top.x, b.x) : Math.max(f.outer.top.x, b.x);
-        label(degrees(f.lean), x + outside, (f.outer.top.y * 3 + b.y) / 4, f === left ? 'right' : 'left', colors.accent);
+        num(degrees(f.lean), x + outside, (f.outer.top.y * 3 + b.y) / 4, f === left ? 'right' : 'left', colors.accent);
       }
       ctx.setLineDash([]);
     }
@@ -387,8 +341,20 @@ export function drawMarks(ctx, m, marks, colors, view) {
   if (m.kind === 'one' && marks.includes('heights')) {
     const back = m.back[1];
     const front = m.front[1];
-    label('100%', front.x + 8, (front.top.y + front.bottom.y) / 2, 'left');
-    label(pct(m.backRatio), back.x - 6, back.top.y - 10, 'right');
+    num('100%', front.x + 8, (front.top.y + front.bottom.y) / 2, 'left');
+    num(pct(m.backRatio), back.x - 6, back.top.y - 10, 'right');
+  }
+
+  if (marks.includes('ring') && m.rings) {
+    ctx.strokeStyle = colors.accent;
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([5, 4]);
+    for (const pts of m.rings) {
+      ctx.beginPath();
+      pts.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
+      ctx.stroke();
+    }
+    ctx.setLineDash([]);
   }
 
   ctx.restore();
