@@ -1,13 +1,16 @@
 import * as THREE from 'three';
 import { TOUR, START } from './tour.js';
+import { measureBox, say as measured, checks, drawMarks } from './drawing.js';
 
 /**
  * The explainer: a card that narrates what the perspective is doing.
  *
  * Every frame it measures the view (where each set of parallel edges vanishes,
- * how foreshortened it is, where your eye is) and shows that as a readout and a
- * top or side view of the setup. In live mode it also writes the caption from
- * those measurements; in tour mode it plays the steps in tour.js.
+ * how foreshortened it is, where your eye is, and for boxes the checks you'd
+ * make on a drawing; see drawing.js) and shows that as a checklist, marks over
+ * the view, and a top or side view of the setup. In live mode it also writes
+ * the caption from those measurements; in tour mode it plays the steps in
+ * tour.js.
  */
 
 const FAR_PAGES = 6;      // a VP further than this many half-pages from the centre is "far off"
@@ -33,6 +36,7 @@ export function createExplainer(app) {
     title: $('lessonTitle'),
     text: $('lessonText'),
     rows: $('lessonRows'),
+    rowsHead: $('lessonRowsHead'),
     inset: $('lessonInset'),
     prev: $('lessonPrev'),
     play: $('lessonPlay'),
@@ -98,6 +102,7 @@ export function createExplainer(app) {
       roll: lerp(a.roll, b.roll, u),
       elevation: lerp(a.elevation, b.elevation, u),
       level: lerp(a.level, b.level, u),
+      scale: lerp(a.scale, b.scale, u),
       // Even steps in perceived zoom, not in millimetres.
       focal: Math.exp(lerp(Math.log(a.focal), Math.log(b.focal), u)),
     };
@@ -109,8 +114,9 @@ export function createExplainer(app) {
   function applyPose(pose, from = null, u = 1) {
     euler.set(rad(pose.pitch), rad(-pose.yaw), rad(pose.roll), 'XZY');
     target.setFromEuler(euler);
-    let { elevation, focal, level } = pose;
+    let { elevation, focal, level, scale } = pose;
     if (from) {
+      scale = lerp(from.scale, scale, u);
       model.quaternion.slerpQuaternions(from.quaternion, target, u);
       elevation = lerp(from.elevation, elevation, u);
       focal = Math.exp(lerp(Math.log(from.focal), Math.log(focal), u));
@@ -121,6 +127,7 @@ export function createExplainer(app) {
     state.elevation = Math.round(elevation * 10) / 10;
     state.focal = focal;
     state.level = level >= 0.5;
+    state.scale = scale;
     app.setLevelMix(level);
   }
 
@@ -130,6 +137,7 @@ export function createExplainer(app) {
       elevation: state.elevation,
       focal: state.focal,
       level: app.levelAmount(),
+      scale: state.scale,
     };
   }
 
@@ -178,7 +186,6 @@ export function createExplainer(app) {
   // Get the scene ready for the tour and ease onto it from wherever it is.
   function resume() {
     if (app.shape().id !== 'cube') app.selectShape('cube');
-    state.scale = 1;
     state.hiddenEdges = true;
     app.applyMode();
     blend = { from: snapshot(), start: performance.now() };
@@ -281,7 +288,7 @@ export function createExplainer(app) {
     const { w, h } = app.viewSize();
     const halfPage = Math.min(w, h) / 2;
 
-    const measured = families.map((f, index) => {
+    const sets = families.map((f, index) => {
       const dir = f.dir.clone().transformDirection(model.matrixWorld);
       camDir.copy(dir).transformDirection(camera.matrixWorldInverse);
       // Point the camera-space direction into the page, away from the eye.
@@ -314,7 +321,8 @@ export function createExplainer(app) {
     const eyeLevel = eye.y > box.max.y ? 'above' : eye.y < box.min.y ? 'below' : 'through';
     const forward = camera.getWorldDirection(tmp);
     return {
-      families: measured,
+      families: sets,
+      box: measureBox(app, sets),
       upright,
       eyeLevel,
       levelView: Math.abs(forward.y) < 1e-3,
@@ -392,11 +400,44 @@ export function createExplainer(app) {
       view = eyeSentence(a);
     }
 
+    const box = a.box;
+    if (box && box.kind !== 'none') {
+      return { title, structure, text: boxAdvice(a, box) };
+    }
+
     return {
       title,
       structure,
       text: [structure, tip, foreshortening, view].filter(Boolean).join(' '),
     };
+  }
+
+  // Live advice for a box: what to compare on your own drawing.
+  function boxAdvice(a, m) {
+    // Live text is always "right now", so drop the tour's lead-in.
+    const plain = (str) => str.replace(/^Right now (\w)/, (match, c) => c.toUpperCase());
+    let parts = [];
+    if (m.kind === 'two') {
+      parts = [
+        measured.faces(m),
+        measured.heights(m),
+        measured.corner(m),
+        a.levelView ? measured.open(m, a.eyeLevel) : measured.lean(m),
+      ];
+    } else if (m.kind === 'one') {
+      parts = [
+        'The front face is square-on: draw its true shape, and aim every edge going back at one VP.',
+        measured.heights(m),
+        measured.open(m, a.eyeLevel),
+      ];
+    } else if (m.kind === 'tilted') {
+      parts = [
+        'Three faces meet at the near corner.',
+        measured.corner(m),
+        'Near edges are longer than far ones, and each set of edges converges toward its own VP.',
+      ];
+    }
+    return parts.filter(Boolean).map(plain).join(' ');
   }
 
   // ---------- drawing the card ----------
@@ -423,6 +464,13 @@ export function createExplainer(app) {
       const say = {
         eye: () => eyeSentence(a),
         now: () => (live.structure ? `Right now: ${live.structure}` : ''),
+        faces: () => measured.faces(a.box),
+        heights: () => measured.heights(a.box),
+        corner: () => measured.corner(a.box),
+        open: () => measured.open(a.box, a.eyeLevel),
+        slopes: () => measured.slopes(a.box),
+        lean: () => measured.lean(a.box),
+        centre: () => measured.centre(a.box),
       };
       const text = typeof s.text === 'function' ? s.text(a, say) : s.text;
       write('eyebrow', el.eyebrow, `Tour · ${current + 1} / ${steps.length}`);
@@ -443,9 +491,17 @@ export function createExplainer(app) {
   }
 
   function drawRows(a) {
+    const list = checks(a.box, a.eyeLevel);
+    if (list) {
+      drawChecks(list);
+      return;
+    }
     const key = a.families.map((f) => f.label + f.color).join();
     if (shown.rowsKey !== key) {
       shown.rowsKey = key;
+      el.rowsHead.innerHTML = '<span></span><span>Length<span class="wide-only"> on screen</span></span><span>VP</span>';
+      el.rowsHead.className = 'readout-head';
+      el.rows.className = '';
       el.rows.innerHTML = a.families.map((f) => `
         <li style="--chip:${f.color}">
           <b class="chip">${f.name}</b>
@@ -463,6 +519,39 @@ export function createExplainer(app) {
       li.querySelector('.status').textContent = STATUS[f.status];
       li.dataset.status = f.status;
     });
+  }
+
+  // The box checklist: what to compare against your own drawing.
+  function drawChecks(list) {
+    const key = `checks:${list.map((r) => r.label).join('|')}`;
+    if (shown.rowsKey !== key) {
+      shown.rowsKey = key;
+      el.rowsHead.innerHTML = '<span>Check your drawing</span>';
+      el.rowsHead.className = 'readout-head checks-head';
+      el.rows.className = 'checks';
+      el.rows.innerHTML = list.map((r) => `<li><span>${r.label}</span><b></b></li>`).join('');
+    }
+    el.rows.querySelectorAll('li').forEach((li, i) => {
+      const b = li.querySelector('b');
+      if (b.textContent !== list[i].value) b.textContent = list[i].value;
+      li.classList.toggle('warn', Boolean(list[i].warn));
+    });
+  }
+
+  // ---------- marks over the 3D view ----------
+
+  function currentMarks(m) {
+    if (kind === 'tour' && !driving) return steps[Math.max(0, current)].marks ?? [];
+    return { two: ['widths', 'heights', 'corner'], one: ['heights'], tilted: ['corner'] }[m?.kind] ?? [];
+  }
+
+  function drawOverlayMarks(ctx) {
+    if (!open) return;
+    const fams = app.families().map((f) => ({ label: f.label, color: app.palette.vp[f.color] }));
+    const m = measureBox(app, fams);
+    const t = readTokens();
+    const colors = { ...t, text: app.palette.line, bg: app.palette.bg, accent: app.palette.horizon };
+    drawMarks(ctx, m, currentMarks(m), colors, app.viewSize());
   }
 
   function buildProgress() {
@@ -504,6 +593,7 @@ export function createExplainer(app) {
       muted: css.getPropertyValue('--dj-text-muted').trim(),
       border: css.getPropertyValue('--dj-border').trim(),
       accent: css.getPropertyValue('--dj-accent').trim(),
+      warn: css.getPropertyValue('--dj-danger').trim(),
       font: css.getPropertyValue('--dj-font-mono').trim(),
     };
     tokensFor = state.paper;
@@ -675,7 +765,7 @@ export function createExplainer(app) {
         c.globalAlpha = 1;
         c.textAlign = top ? 'right' : 'center';
         if (top) text(c, `${l.f.name}: no VP`, W - pad + 4, ey - 8, W);
-        else text(c, `${l.f.name}: no VP`, ex + 26, pad + label - 4, W);
+        else text(c, `${l.f.name}: no VP`, ex + 6, H - pad, W);
         continue;
       }
       const [vx, vy] = at(l.vp, depth);
@@ -754,6 +844,33 @@ export function createExplainer(app) {
       }
     }
 
+    // How the two face widths arise: sight lines from the eye through the
+    // box's corners cut the picture plane into one span per face.
+    const box = a.box;
+    if (top && box?.kind === 'two' && currentMarks(box).includes('widths')) {
+      const cut = (e) => {
+        const p = pa.copy(e.mid).applyMatrix4(model.matrixWorld).applyMatrix4(view2);
+        return { u: (depth * p.x) / -p.z, end: at(p.x, -p.z) };
+      };
+      const near = cut(box.near);
+      c.lineWidth = 1;
+      c.strokeStyle = t.muted;
+      c.globalAlpha = 0.7;
+      for (const e of [box.near, box.left.outer, box.right.outer]) {
+        const { end } = cut(e);
+        line(c, ex, ey, end[0], end[1]);
+      }
+      c.globalAlpha = 1;
+      c.lineWidth = 4;
+      for (const f of [box.left, box.right]) {
+        const { u } = cut(f.outer);
+        const [x0, y0] = at(near.u, depth);
+        const [x1] = at(u, depth);
+        c.strokeStyle = f.color;
+        line(c, x0, y0 + 4, x1, y0 + 4);
+      }
+    }
+
     // The eye.
     c.fillStyle = t.text;
     dot(c, ex, ey, 3.5);
@@ -821,5 +938,6 @@ export function createExplainer(app) {
     close,
     takeOver,
     update,
+    drawMarks: drawOverlayMarks,
   };
 }

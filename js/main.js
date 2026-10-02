@@ -620,6 +620,7 @@ function drawOverlay() {
   const explaining = explainer.isOpen();
   if (state.horizon || explaining) drawHorizon(w);
   if ((state.vanishing || explaining) && hasVanishingPoints()) drawVanishingPoints();
+  explainer.drawMarks(ctx);
 }
 
 function drawHorizon(w) {
@@ -1058,6 +1059,7 @@ const explainer = createExplainer({
   palette,
   viewSize,
   vanishingPoint,
+  projectPoint,
   requestRender,
   syncUI,
   applyMode,

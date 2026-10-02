@@ -23,6 +23,10 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
  *            diameters) as a list of polylines, each a list of [x, y, z] points
  *            in the same space as build(). Lines meant to sit on a curved
  *            surface should pass through the mesh's vertices, so they hug it.
+ *   cuboid (optional)
+ *            true for boxes built axis-aligned (BoxGeometry): the explainer
+ *            then measures them the way you'd check a drawn box (face
+ *            widths, near corner angle, how much the far edges shrink).
  *   vanishingDirections (optional)
  *            directions whose parallel lines get vanishing-point guides; edges
  *            and construction lines running along them are extended to the
@@ -88,12 +92,14 @@ export const SHAPES = [
     id: 'cube',
     name: 'Cube',
     group: 'Flat faces',
+    cuboid: true,
     build: () => new THREE.BoxGeometry(2, 2, 2),
   },
   {
     id: 'box',
     name: 'Box',
     group: 'Flat faces',
+    cuboid: true,
     build: () => new THREE.BoxGeometry(2.8, 1.4, 1.8),
   },
   {

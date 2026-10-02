@@ -284,6 +284,18 @@ button {
 .readout li[data-status="far"] .status { color: var(--dj-text-muted); }
 .readout .empty { display: block; color: var(--dj-text-muted); }
 
+/* The box checklist. */
+.readout-head.checks-head { display: block; }
+.readout ul.checks li {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--dj-space-2);
+  padding: 1px 0;
+}
+.checks li span { color: var(--dj-text-muted); }
+.checks li b { font-family: var(--dj-font-mono); font-weight: 500; white-space: nowrap; }
+.checks li.warn b { color: var(--dj-danger); }
+
 .inset {
   display: block;
   width: 100%;
