@@ -3,6 +3,7 @@ import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
 import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import { SHAPES } from './shapes.js';
+import { createExplainer } from './explain.js';
 
 // ---------- constants ----------
 
@@ -147,9 +148,13 @@ function applyPalette() {
   edgeMaterial.color.set(palette.line);
   hiddenEdgeMaterial.color.set(palette.line);
   grid.material.color.set(palette.grid);
+  if (mesh) colorEdges();
 }
 
 let mesh, edges, hiddenEdges, guides, hiddenGuides, contour = null, edgeSegments = [];
+// Every edge of the shape (no construction lines), with the index of the
+// vanishing direction it runs along, or -1.
+let edgeList = [];
 
 function loadShape(id) {
   shape = SHAPES.find((s) => s.id === id) || SHAPES[0];
@@ -169,6 +174,7 @@ function loadShape(id) {
     .multiply(new THREE.Matrix4().makeTranslation(-center.x, -center.y, -center.z));
   geometry.applyMatrix4(normalize);
   geometry.computeBoundingSphere();
+  geometry.computeBoundingBox();
 
   const edgesGeometry = new THREE.EdgesGeometry(geometry, shape.edgeAngle ?? (shape.curved ? 30 : 1));
   const lineGeometry = new LineSegmentsGeometry().fromEdgesGeometry(edgesGeometry);
@@ -197,8 +203,12 @@ function loadShape(id) {
     model.add(guides, hiddenGuides);
   }
 
-  edgeSegments = classifyEdges(segmentsOf(edgesGeometry), guideSegments, shape);
+  const edgeSegs = segmentsOf(edgesGeometry);
+  edgeSegments = classifyEdges(edgeSegs, guideSegments, shape);
+  const families = hasVanishingPoints() ? edgeSegments.families : [];
+  edgeList = edgeSegs.map((seg) => ({ ...seg, family: familyOf(families, seg) }));
   edgesGeometry.dispose();
+  colorEdges();
 
   applyMode();
   syncUI();
@@ -273,11 +283,39 @@ function classifyEdges(edgeSegs, guideSegs, shape) {
 
   const segments = [];
   for (const seg of [...edgeSegs, ...guideSegs]) {
-    const u = direction(seg);
-    const family = families.findIndex((f) => isParallel(f.dir, u));
+    const family = familyOf(families, seg);
     if (family >= 0) segments.push({ ...seg, family });
   }
   return { families, segments };
+}
+
+function familyOf(families, seg) {
+  const u = direction(seg);
+  return families.findIndex((f) => isParallel(f.dir, u));
+}
+
+// While the explainer is open, edges take their vanishing direction's color,
+// matching the VP lines and the readout. Curved shapes keep plain edges: their
+// traced outline shares the edge material and carries no colors.
+function colorEdges() {
+  const on = explainer.isOpen() && !shape.curved && edgeList.some((e) => e.family >= 0);
+  if (on) {
+    const colors = new Float32Array(edgeList.length * 6);
+    const c = new THREE.Color();
+    edgeList.forEach(({ family }, i) => {
+      c.set(family >= 0 ? palette.vp[edgeSegments.families[family].color] : palette.line);
+      colors.set([c.r, c.g, c.b, c.r, c.g, c.b], i * 6);
+    });
+    edges.geometry.setColors(colors);
+  }
+  for (const material of [edgeMaterial, hiddenEdgeMaterial]) {
+    if (material.vertexColors === on) continue;
+    material.vertexColors = on;
+    material.needsUpdate = true;
+  }
+  const lineColor = on ? '#ffffff' : palette.line; // vertex colors are multiplied by this
+  edgeMaterial.color.set(lineColor);
+  hiddenEdgeMaterial.color.set(lineColor);
 }
 
 // ---------- contours of curved shapes ----------
@@ -460,10 +498,16 @@ function cameraDistance() {
   return (FRAME * state.focal) / FILM;
 }
 
+// How level the camera is: 1 looks straight ahead (Level camera on), 0 tilts
+// to look at the shape. The tour eases between the two; otherwise it follows
+// the checkbox.
+let levelMix = null;
+const levelAmount = () => levelMix ?? (state.level ? 1 : 0);
+
 function maxScale() {
   const e = THREE.MathUtils.degToRad(state.elevation);
   // Keep the whole shape comfortably in front of the camera.
-  const depth = cameraDistance() * (state.level ? Math.cos(e) : 1);
+  const depth = cameraDistance() * Math.cos(e * levelAmount());
   return (0.8 * depth) / SHAPE_RADIUS;
 }
 
@@ -485,18 +529,18 @@ function updateCamera() {
   camera.near = Math.max(0.01, dist * 0.01);
   camera.far = dist * 4 + 100;
 
-  if (state.level) {
-    // Look straight ahead (no tilt), then shift the lens vertically so the
-    // shape is centred again. Like an architectural shift lens, this keeps
-    // vertical edges parallel: true 1- and 2-point perspective.
-    camera.lookAt(0, camera.position.y, 0);
-    camera.updateProjectionMatrix();
+  // A level camera looks straight ahead (no tilt), then shifts the lens
+  // vertically so the shape is centred again. Like an architectural shift
+  // lens, this keeps vertical edges parallel: true 1- and 2-point perspective.
+  // In between, it tilts part of the way and shifts for the rest.
+  const shift = e * levelAmount();
+  const tilt = e - shift;
+  camera.lookAt(0, camera.position.y - dist * Math.cos(e) * Math.tan(tilt), 0);
+  camera.updateProjectionMatrix();
+  if (shift !== 0) {
     const m = camera.projectionMatrix.elements;
-    m[9] = -m[5] * Math.tan(e);
+    m[9] = -m[5] * Math.tan(shift);
     camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert();
-  } else {
-    camera.lookAt(0, 0, 0);
-    camera.updateProjectionMatrix();
   }
   camera.updateMatrixWorld();
 
@@ -525,6 +569,7 @@ function render() {
   grid.visible = state.grid;
   renderer.render(scene, camera);
   drawOverlay();
+  explainer.update();
 }
 
 function resize() {
@@ -543,10 +588,15 @@ new ResizeObserver(resize).observe(stage);
 const tmp4 = new THREE.Vector4();
 const tmp3 = new THREE.Vector3();
 
+// Lines closer than half a degree to the picture plane count as parallel: their
+// vanishing point would be over a hundred times further away than the shape.
+const PARALLEL = Math.sin(THREE.MathUtils.degToRad(0.5));
+
 // Screen position where lines running in world direction `dir` converge.
 // Returns null when the lines are parallel to the picture plane (no vanishing point).
 function vanishingPoint(dir) {
   tmp3.copy(dir).transformDirection(camera.matrixWorldInverse);
+  if (Math.abs(tmp3.z) < PARALLEL) return null;
   tmp4.set(tmp3.x, tmp3.y, tmp3.z, 0).applyMatrix4(camera.projectionMatrix);
   if (Math.abs(tmp4.w) < 1e-4) return null;
   return ndcToScreen(tmp4.x / tmp4.w, tmp4.y / tmp4.w);
@@ -566,8 +616,10 @@ function drawOverlay() {
   const { w, h } = viewSize();
   ctx.clearRect(0, 0, w, h);
 
-  if (state.horizon) drawHorizon(w);
-  if (state.vanishing && hasVanishingPoints()) drawVanishingPoints();
+  // The explainer always shows both: its narration refers to them.
+  const explaining = explainer.isOpen();
+  if (state.horizon || explaining) drawHorizon(w);
+  if ((state.vanishing || explaining) && hasVanishingPoints()) drawVanishingPoints();
 }
 
 function drawHorizon(w) {
@@ -626,13 +678,59 @@ function drawVanishingPoints() {
     ctx.globalAlpha = 1;
     ctx.setLineDash([]);
     ctx.fillStyle = color;
-    ctx.beginPath();
-    ctx.arc(vp.x, vp.y, 4.5, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillText(`VP ${label}`, vp.x + 8, vp.y - 8);
+    if (onScreen(vp)) {
+      ctx.beginPath();
+      ctx.arc(vp.x, vp.y, 4.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillText(`VP ${label}`, vp.x + 8, vp.y - 8);
+    } else {
+      drawOffscreenMarker(vp, `VP ${label}`);
+    }
   });
 
   ctx.restore();
+}
+
+const EDGE_MARGIN = 18;
+const TOP_MARGIN = 70; // clear of the top bar
+
+function onScreen(p) {
+  const { w, h } = viewSize();
+  return p.x >= 0 && p.x <= w && p.y >= 0 && p.y <= h;
+}
+
+// A vanishing point beyond the edge of the view: an arrow at the edge,
+// pointing the way to it.
+function drawOffscreenMarker(vp, label) {
+  const { w, h } = viewSize();
+  const cx = w / 2;
+  const cy = h / 2;
+  const dx = vp.x - cx;
+  const dy = vp.y - cy;
+  const top = Math.min(TOP_MARGIN, h / 3);
+  const sx = dx > 0 ? (w - EDGE_MARGIN - cx) / dx : dx < 0 ? (EDGE_MARGIN - cx) / dx : Infinity;
+  const sy = dy > 0 ? (h - EDGE_MARGIN - cy) / dy : dy < 0 ? (top - cy) / dy : Infinity;
+  const s = Math.min(sx, sy);
+  const x = cx + dx * s;
+  const y = cy + dy * s;
+  const angle = Math.atan2(dy, dx);
+
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(angle);
+  ctx.beginPath();
+  ctx.moveTo(6, 0);
+  ctx.lineTo(-6, -5);
+  ctx.lineTo(-6, 5);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+
+  const text = `${label} \u2192 off page`;
+  const width = ctx.measureText(text).width;
+  const tx = THREE.MathUtils.clamp(x - Math.cos(angle) * (width / 2 + 16) - width / 2, 6, w - width - 6);
+  const ty = THREE.MathUtils.clamp(y - Math.sin(angle) * 16 + 4, top - 6, h - 6);
+  ctx.fillText(text, tx, ty);
 }
 
 // ---------- pointer interaction ----------
@@ -672,6 +770,7 @@ function pinchInfo() {
 }
 
 canvas.addEventListener('pointerdown', (e) => {
+  explainer.takeOver();
   canvas.setPointerCapture(e.pointerId);
   pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
   canvas.classList.add('dragging');
@@ -718,6 +817,7 @@ canvas.addEventListener('wheel', (e) => {
 // ---------- presets ----------
 
 function applyPreset(name) {
+  explainer.takeOver();
   if (name === 'random') {
     model.quaternion.random();
     state.level = false;
@@ -760,6 +860,9 @@ const ui = {
   paper: $('paper'),
   panel: $('panel'),
   panelToggle: $('panelToggle'),
+  explain: $('explainToggle'),
+  explainLive: $('explainLive'),
+  tour: $('tourStart'),
 };
 
 const focalFromSlider = (t) => FOCAL_MIN * Math.pow(FOCAL_MAX / FOCAL_MIN, t / 1000);
@@ -814,6 +917,9 @@ function syncUI() {
   ui.guides.disabled = !guidesAvailable;
   ui.guidesRow.classList.toggle('disabled', !guidesAvailable);
   ui.guidesRow.title = guidesAvailable ? '' : 'No construction lines for this shape';
+
+  ui.explain.setAttribute('aria-pressed', String(explainer.isOpen()));
+  ui.explainLive.checked = explainer.isOpen();
 }
 
 function setMode(mode) {
@@ -853,14 +959,17 @@ function stepShape(by) {
   selectShape(SHAPES[(i + by + SHAPES.length) % SHAPES.length].id);
 }
 
-ui.shape.addEventListener('change', () => selectShape(ui.shape.value));
+ui.shape.addEventListener('change', () => {
+  explainer.takeOver();
+  selectShape(ui.shape.value);
+});
 
 for (const btn of ui.modeButtons) {
   btn.addEventListener('click', () => setMode(btn.dataset.mode));
 }
 
 bindCheckbox(ui.hiddenEdges, 'hiddenEdges', applyMode);
-bindCheckbox(ui.level, 'level');
+bindCheckbox(ui.level, 'level', () => explainer.takeOver());
 bindCheckbox(ui.horizon, 'horizon');
 bindCheckbox(ui.vanishing, 'vanishing');
 bindCheckbox(ui.guides, 'guides', applyMode);
@@ -875,12 +984,14 @@ ui.lineWidth.addEventListener('input', () => {
 });
 
 ui.focal.addEventListener('input', () => {
+  explainer.takeOver();
   state.focal = focalFromSlider(Number(ui.focal.value));
   syncUI();
   requestRender();
 });
 
 ui.elevation.addEventListener('input', () => {
+  explainer.takeOver();
   state.elevation = Number(ui.elevation.value);
   syncUI();
   requestRender();
@@ -897,9 +1008,18 @@ function setPanelOpen(open) {
 }
 ui.panelToggle.addEventListener('click', () => setPanelOpen(ui.panel.hidden));
 
+ui.explain.addEventListener('click', () => (explainer.isOpen() ? explainer.close() : explainer.startTour()));
+ui.tour.addEventListener('click', () => explainer.startTour());
+ui.explainLive.addEventListener('change', () => {
+  if (ui.explainLive.checked !== explainer.isOpen()) explainer.toggleLive();
+});
+
 window.addEventListener('keydown', (e) => {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
   if (e.target instanceof HTMLSelectElement) return;
+  // Leave Space and the arrow keys to focused buttons and sliders.
+  if ((e.key === ' ' || e.key.startsWith('Arrow')) && e.target instanceof HTMLElement
+    && e.target.matches('button, input')) return;
   const actions = {
     w: toggleMode,
     1: () => applyPreset('one'),
@@ -913,14 +1033,48 @@ window.addEventListener('keydown', (e) => {
     v: () => hasVanishingPoints() && toggleState('vanishing'),
     l: () => toggleState('horizon'),
     c: () => guides && toggleState('guides', applyMode),
-    '[': () => stepShape(-1),
-    ']': () => stepShape(1),
+    '[': () => { explainer.takeOver(); stepShape(-1); },
+    ']': () => { explainer.takeOver(); stepShape(1); },
+    t: () => explainer.startTour(),
+    e: () => explainer.toggleLive(),
+    ' ': () => explainer.isTour() && explainer.togglePlay(),
+    arrowleft: () => explainer.isTour() && explainer.step(-1),
+    arrowright: () => explainer.isTour() && explainer.step(1),
+    escape: () => explainer.isOpen() && explainer.close(),
   };
   const action = actions[e.key.toLowerCase()];
   if (action) {
     e.preventDefault();
     action();
   }
+});
+
+// ---------- explainer ----------
+
+const explainer = createExplainer({
+  state,
+  model,
+  camera,
+  palette,
+  viewSize,
+  vanishingPoint,
+  requestRender,
+  syncUI,
+  applyMode,
+  setMode,
+  selectShape,
+  setPanelOpen,
+  levelAmount,
+  setLevelMix: (v) => { levelMix = v; },
+  families: () => (hasVanishingPoints() ? edgeSegments.families : []),
+  edges: () => edgeList,
+  bounds: () => mesh.geometry.boundingBox,
+  radius: () => SHAPE_RADIUS,
+  shape: () => shape,
+  onOpenChange: () => {
+    colorEdges();
+    syncUI();
+  },
 });
 
 // ---------- start ----------

@@ -159,11 +159,188 @@ button {
   color: var(--dj-accent-hi);
   background: var(--dj-surface-raised);
 }
-.panel-toggle {
+.topbar-actions {
   justify-self: end;
-  box-shadow: var(--dj-shadow-md);
+  display: flex;
+  gap: var(--dj-space-2);
 }
-.panel-toggle[aria-expanded="true"] { border-color: var(--dj-accent); }
+.topbar-actions .btn { box-shadow: var(--dj-shadow-md); }
+.panel-toggle[aria-expanded="true"],
+.explain-toggle[aria-pressed="true"] { border-color: var(--dj-accent); }
+.explain-toggle[aria-pressed="true"] { color: var(--dj-accent-hi); }
+.btn.wide { width: 100%; margin-bottom: var(--dj-space-2); }
+
+.icon-btn {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  color: var(--dj-text);
+  background: var(--dj-surface);
+  border: var(--dj-border-width) solid var(--dj-border);
+  border-radius: var(--dj-radius-sm);
+  transition: border-color var(--dj-dur-base) var(--dj-ease), color var(--dj-dur-base) var(--dj-ease);
+}
+.icon-btn:hover { border-color: var(--dj-accent); color: var(--dj-accent-hi); }
+.icon-btn svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.icon-btn[hidden] { display: none; }
+
+/* ---------- explainer card ---------- */
+
+.lesson {
+  position: fixed;
+  top: 68px;
+  left: var(--dj-space-4);
+  width: 340px;
+  max-height: calc(100% - 84px);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--dj-space-2);
+  padding: var(--dj-space-3) var(--dj-space-4) var(--dj-space-4);
+  background: var(--dj-surface);
+  border: var(--dj-border-width) solid var(--dj-border);
+  border-radius: var(--dj-radius-lg);
+  box-shadow: var(--dj-shadow-lg);
+}
+.lesson[hidden] { display: none; }
+
+.lesson-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--dj-space-2);
+}
+.lesson-head .icon-btn { width: 28px; height: 28px; border-color: transparent; }
+
+.lesson h2 {
+  margin: 0;
+  font-family: var(--dj-font-display);
+  font-size: var(--dj-text-lg);
+  font-weight: 700;
+  letter-spacing: var(--dj-tracking-display);
+  line-height: var(--dj-leading-tight);
+}
+.lesson p {
+  margin: 0;
+  min-height: 9em; /* keeps the card from jumping between steps */
+  line-height: 1.5;
+}
+
+.chip {
+  font-family: var(--dj-font-mono);
+  font-weight: 600;
+  color: var(--chip);
+}
+
+.readout-head,
+.readout li {
+  display: grid;
+  grid-template-columns: 20px 1fr 36px 60px;
+  align-items: center;
+  gap: var(--dj-space-2);
+}
+.readout-head {
+  font-family: var(--dj-font-mono);
+  font-size: 10px;
+  letter-spacing: var(--dj-tracking-label);
+  text-transform: uppercase;
+  color: var(--dj-text-muted);
+  margin-bottom: 2px;
+}
+.readout-head span:nth-child(2) { grid-column: span 2; }
+.readout ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--dj-text-xs);
+}
+.readout li { padding: 2px 0; }
+.readout .bar {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--dj-surface-raised);
+  overflow: hidden;
+}
+.readout .bar i {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--chip);
+}
+.readout .pct { font-family: var(--dj-font-mono); text-align: right; }
+.readout .status { color: var(--dj-text); white-space: nowrap; }
+.readout li[data-status="parallel"] .status,
+.readout li[data-status="far"] .status { color: var(--dj-text-muted); }
+.readout .empty { display: block; color: var(--dj-text-muted); }
+
+.inset {
+  display: block;
+  width: 100%;
+  height: 160px;
+  margin-top: var(--dj-space-2);
+  background: var(--dj-bg);
+  border: var(--dj-border-width) solid var(--dj-border);
+  border-radius: var(--dj-radius-md);
+}
+
+.lesson-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--dj-space-2);
+  margin-top: var(--dj-space-1);
+}
+.lesson-controls .btn { flex: 1; }
+.lesson-controls .btn[hidden] { display: none; }
+.play svg { display: none; }
+.play[data-state="play"] .i-play,
+.play[data-state="pause"] .i-pause,
+.play[data-state="replay"] .i-replay { display: block; }
+.play .i-play path { fill: currentColor; }
+
+.progress {
+  flex: 1;
+  display: flex;
+  gap: 3px;
+  min-width: 0;
+}
+.progress[hidden] { display: none; }
+.progress button {
+  position: relative;
+  flex-basis: 0;
+  min-width: 0;
+  height: 24px;
+  padding: 0;
+  background: none;
+  border: 0;
+}
+.progress button::before,
+.progress i {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 10px;
+  height: 4px;
+  border-radius: 2px;
+}
+.progress button::before { right: 0; background: var(--dj-border); }
+.progress button.current::before { background: var(--dj-text-muted); }
+.progress i { width: 0; background: var(--dj-accent); }
+
+/* Make room for the card beside the view. */
+@media (min-width: 641px) {
+  body.lesson-open:not(.ui-hidden) #stage { left: calc(340px + 2 * var(--dj-space-4)); }
+}
 
 /* ---------- side panel ---------- */
 
@@ -291,8 +468,39 @@ body.ui-hidden .ui { display: none; }
     padding-right: var(--dj-space-3);
   }
   .brand-text { display: none; }
+  .topbar { gap: var(--dj-space-2); }
   .mode-toggle { justify-self: center; }
-  .mode-toggle button { padding: var(--dj-space-2) var(--dj-space-3); }
+  .mode-toggle button,
+  .topbar-actions .btn { padding: var(--dj-space-2) var(--dj-space-2); letter-spacing: 0.04em; }
+  .topbar-actions { gap: 6px; }
+
+  /* The explainer becomes a bottom sheet, like the controls. */
+  .lesson {
+    top: auto;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: auto;
+    max-height: 46%;
+    gap: 6px;
+    padding: var(--dj-space-3) var(--dj-space-3) max(var(--dj-space-3), env(safe-area-inset-bottom));
+    border-radius: var(--dj-radius-lg) var(--dj-radius-lg) 0 0;
+  }
+  .lesson h2 { font-size: var(--dj-text-base); }
+  .lesson p { min-height: 0; font-size: 0.8125rem; line-height: 1.45; }
+  .lesson-body {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--dj-space-3);
+    align-items: start;
+  }
+  .readout-head, .readout li { grid-template-columns: 14px 1fr 30px 46px; gap: 6px; }
+  .readout ul { font-size: 11px; }
+  .wide-only { display: none; }
+  .inset { height: 112px; margin-top: 0; }
+  body.lesson-open:not(.ui-hidden) #stage { bottom: 46%; }
+  /* One sheet at a time: the controls cover the explainer while open. */
+  body.panel-open .lesson { display: none; }
 
   .panel {
     top: auto;

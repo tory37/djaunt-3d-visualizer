@@ -42,10 +42,50 @@
         <button type="button" role="radio" data-mode="wireframe" aria-checked="false" title="Wireframe (W)">Wireframe</button>
       </div>
 
-      <button type="button" class="btn panel-toggle" id="panelToggle" aria-expanded="true" aria-controls="panel">
-        Controls
-      </button>
+      <div class="topbar-actions">
+        <button type="button" class="btn explain-toggle" id="explainToggle" aria-pressed="false" aria-controls="lesson" title="Guided tour of perspective (T)">
+          Explain
+        </button>
+        <button type="button" class="btn panel-toggle" id="panelToggle" aria-expanded="true" aria-controls="panel">
+          Controls
+        </button>
+      </div>
     </header>
+
+    <section class="lesson" id="lesson" aria-label="Perspective explainer" hidden>
+      <header class="lesson-head">
+        <span class="eyebrow" id="lessonEyebrow"></span>
+        <button type="button" class="icon-btn" id="lessonClose" aria-label="Close explainer (Esc)" title="Close (Esc)">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg>
+        </button>
+      </header>
+      <h2 id="lessonTitle" aria-live="polite"></h2>
+      <p id="lessonText"></p>
+      <div class="lesson-body">
+        <div class="readout">
+          <div class="readout-head" title="How long each set of edges looks compared with its full length (foreshortening), and where its vanishing point is">
+            <span></span><span>Length<span class="wide-only"> on screen</span></span><span>VP</span>
+          </div>
+          <ul id="lessonRows"></ul>
+        </div>
+        <canvas class="inset" id="lessonInset" aria-hidden="true"></canvas>
+      </div>
+      <footer class="lesson-controls">
+        <button type="button" class="icon-btn" id="lessonPrev" aria-label="Previous step (←)" title="Previous step (←)">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3L5 8l5 5"/></svg>
+        </button>
+        <button type="button" class="icon-btn play" id="lessonPlay" aria-label="Play">
+          <svg class="i-play" viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3l8 5-8 5z"/></svg>
+          <svg class="i-pause" viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3v10M11 3v10"/></svg>
+          <svg class="i-replay" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8a5 5 0 1 0 1.6-3.7M3 2.5v3h3"/></svg>
+        </button>
+        <button type="button" class="icon-btn" id="lessonNext" aria-label="Next step (→)" title="Next step (→)">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3l5 5-5 5"/></svg>
+        </button>
+        <div class="progress" id="lessonProgress"></div>
+        <button type="button" class="btn" id="lessonTour">Play the tour</button>
+      </footer>
+    </section>
 
     <aside class="panel" id="panel">
       <section>
@@ -94,6 +134,12 @@
       </section>
 
       <section>
+        <h2>Learn</h2>
+        <button type="button" class="btn wide" id="tourStart" title="Guided tour of perspective (T)">Play the perspective tour</button>
+        <label class="check"><input type="checkbox" id="explainLive"><span>Explain as I rotate <small>(E)</small></span></label>
+      </section>
+
+      <section>
         <h2>Guides</h2>
         <label class="check" id="guidesRow"><input type="checkbox" id="guides"><span>Construction lines <small>(axis, cross-contours)</small></span></label>
         <label class="check"><input type="checkbox" id="horizon"><span>Horizon line</span></label>
@@ -114,6 +160,8 @@
           <dt>N / R</dt><dd>Random pose / reset</dd>
           <dt>C</dt><dd>Construction lines</dd>
           <dt>G L V P</dt><dd>Grid, horizon, vanishing points, paper</dd>
+          <dt>T / E</dt><dd>Perspective tour / explain as I rotate</dd>
+          <dt>Space ← →</dt><dd>Tour: pause, previous / next step</dd>
           <dt>H</dt><dd>Hide all controls</dd>
         </dl>
       </section>

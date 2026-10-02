@@ -19,7 +19,36 @@ sphere and torus.
 | `N` / `R` | Random pose / reset |
 | `C` | Construction lines (centre axis, cross-contours, ellipse diameters) |
 | `G` `L` `V` `P` | Ground grid, horizon line, vanishing points, paper background |
+| `T` or **Explain** | Guided tour of perspective (see below) |
+| `E` | Explain as I rotate: live narration of the current view |
+| `Space` `←` `→` | During the tour: pause / play, previous / next step |
+| `Esc` | Close the explainer |
 | `H` | Hide every control, for a clean reference |
+
+## Explainer
+
+**Explain** plays a two-minute tour on the cube that turns it, tilts the view
+and changes the lens while captions explain what happens: 1-, 2- and 3-point
+perspective, why the two horizontal vanishing points always move together,
+eye level and the horizon, and how lens and distance spread the vanishing points.
+Drag the cube at any point and the tour pauses. The panel then narrates your
+own view instead, and play picks the tour back up.
+
+What the panel shows, for the tour and for **Explain as I rotate** alike:
+
+- **Edges colored by direction.** Each set of parallel edges, its vanishing
+  point and its lines in the captions share one color. A vanishing point that
+  falls off the screen gets an arrow at the edge pointing to it.
+- **Length on screen.** How long each set of edges looks compared with its
+  full length (the foreshortening), and whether its vanishing point is on the
+  page, off it, or missing because the edges lie parallel to the picture plane.
+- **Top / side view.** A diagram of your eye, the picture plane and the shape,
+  with a sight line from the eye parallel to each set of edges. Each vanishing
+  point is where its sight line meets the picture plane, which is why turning
+  the cube moves them. Everything is measured from the live 3D view.
+
+The tour script lives in [`js/tour.js`](js/tour.js): a list of steps, each with
+a caption and the poses to move through.
 
 ## How the perspective works
 
