@@ -97,10 +97,19 @@ export const SHAPES = [
   },
   {
     id: 'box',
-    name: 'Box',
+    name: 'Rectangular prism',
     group: 'Flat faces',
     cuboid: true,
+    // Long and low, like a brick or a bed.
     build: () => new THREE.BoxGeometry(2.8, 1.4, 1.8),
+  },
+  {
+    id: 'tall-box',
+    name: 'Rectangular prism, tall',
+    group: 'Flat faces',
+    cuboid: true,
+    // Standing up, like a tower or a fridge.
+    build: () => new THREE.BoxGeometry(1.5, 3, 1.5),
   },
   {
     id: 'pyramid',

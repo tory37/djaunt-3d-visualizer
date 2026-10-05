@@ -3,8 +3,8 @@
 A browser tool for drawing practice: rotate and scale simple 3D shapes and see
 them in true perspective, as solid forms or as see-through wireframes.
 
-Shapes: cube, box, pyramid, triangular and hexagonal prisms, cylinder, cone,
-sphere and torus.
+Shapes: cube, rectangular prisms (long and tall), pyramid, triangular and
+hexagonal prisms, cylinder, cone, sphere and torus.
 
 ## Use
 
@@ -55,7 +55,7 @@ Drag the cube at any point and the tour pauses; play picks it back up.
 ideas that apply to it (which face is thin, where your eye is, whether the
 near corner has gone sharp). The words change only when the situation does.
 
-For the cube and box, the panel also has an optional checklist of
+For the cube and rectangular prisms, the panel also has an optional checklist of
 measurements to hold against a drawing: face width ratio, far corners
 compared with the near one, the angle at the near corner, how open the top
 is, edge slopes, and how far the verticals lean. Phones leave it out during

@@ -359,7 +359,7 @@ export function createExplainer(app) {
 
   function eyeSentence(a) {
     if (!a.upright) return '';
-    const thing = app.shape().id === 'cube' ? 'cube' : 'shape';
+    const thing = app.shape().id === 'cube' ? 'cube' : app.shape().cuboid ? 'box' : 'shape';
     return {
       above: `Your eye is above the ${thing}, so you see its top, opening up the higher you go.`,
       through: `Your eye level runs through the ${thing}: its top and bottom are edge-on, just lines.`,
@@ -408,11 +408,22 @@ export function createExplainer(app) {
   // The ideas that apply to a box in this view.
   function boxAdvice(a, m, view) {
     if (m.kind === 'two') {
-      const r = Math.min(m.left.width, m.right.width) / Math.max(m.left.width, m.right.width);
-      const thin = m.left.width < m.right.width ? 'left' : 'right';
-      const faces = r > 0.8
-        ? 'The two faces are about equal, so the box is near 45°: the vanishing points sit about as far out on each side.'
-        : `The ${thin} face is the thin one: its edges tilt hardest, toward the closer vanishing point.`;
+      // Compare each face with its own true length, so a long box isn't
+      // mistaken for a turned one.
+      const r = Math.min(m.left.turn, m.right.turn) / Math.max(m.left.turn, m.right.turn);
+      const thin = m.left.turn < m.right.turn ? 'left' : 'right';
+      const cube = app.shape().id === 'cube';
+      let faces;
+      if (r > 0.8) {
+        faces = cube
+          ? 'The two faces are about equal, so the box is near 45°: the vanishing points sit about as far out on each side.'
+          : 'The box is near 45°: the vanishing points sit about as far out on each side, and the longer face just looks longer.';
+      } else {
+        faces = cube
+          ? `The ${thin} face is the thin one: its edges tilt hardest, toward the closer vanishing point.`
+          : `The ${thin} face is turned further from you: its edges tilt hardest, toward the closer vanishing point. `
+            + 'Judge how turned a face is against its real length, not against the other face.';
+      }
       const corner = m.flatAngle && m.flatAngle < SHARP
         ? 'The near corner is sharper than 90°, so the box looks stretched: it’s far from the centre of view.'
         : 'Draw the near corner first: it’s the tallest edge.';

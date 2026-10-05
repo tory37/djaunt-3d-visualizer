@@ -74,10 +74,12 @@ export function measureBox(app, families) {
     // Two side faces in view, meeting at the near vertical edge.
     const near = edge(sx, sz);
     // The face you see along x has its horizontal edges along z, and vice versa.
-    const faceX = { outer: edge(sx, -sz), color: colorOf('Z') };
-    const faceZ = { outer: edge(-sx, sz), color: colorOf('X') };
+    const faceX = { outer: edge(sx, -sz), color: colorOf('Z'), length: max.z - min.z };
+    const faceZ = { outer: edge(-sx, sz), color: colorOf('X'), length: max.x - min.x };
     for (const f of [faceX, faceZ]) {
       f.width = Math.abs(f.outer.x - near.x);
+      // Width for its true length: smaller means turned further from you.
+      f.turn = f.width / f.length;
       f.height = f.outer.height / near.height;
       f.lean = deg(Math.atan2(Math.abs(f.outer.top.x - f.outer.bottom.x), Math.abs(f.outer.top.y - f.outer.bottom.y)));
       f.slopeTop = slope(near.top, f.outer.top);
