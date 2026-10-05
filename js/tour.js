@@ -35,9 +35,9 @@ export const TOUR = [
     inset: 'side',
     mode: 'wireframe',
     path: [],
-    text: 'The gold line is the height of your eye: the horizon. Square-on like this, the front face is '
-      + 'just a square, so draw its true shape. Every edge running away from you meets at one point on '
-      + 'the horizon, straight ahead.',
+    text: 'The gold line is your eye level: the horizon. Facing the cube square-on, the front '
+      + 'face is a plain square, so draw it at its true shape. The edges running away from you '
+      + 'all meet at one point on the horizon, straight ahead.',
     remember: 'Flat edges running away meet on the horizon.',
   },
   {
@@ -48,9 +48,9 @@ export const TOUR = [
       { to: { yaw: 45 }, move: 9, hold: 2 },
       { to: { yaw: 20 }, move: 4 },
     ],
-    text: 'As the cube turns, the side face opens and the front face closes: whatever one gains, the '
-      + 'other gives up, until they match at 45°. The thin face changes fastest, so it shows best how '
-      + 'far the cube has turned.',
+    text: 'Watch the two width bars under the cube. As it turns, one face widens and the other '
+      + 'narrows, until they match at 45°. The thin face changes fastest, so it’s your best '
+      + 'clue to how far the cube has turned.',
     remember: 'One face opens as the other closes. Get the thin face right first.',
   },
   {
@@ -61,9 +61,9 @@ export const TOUR = [
       { to: { yaw: 70 }, move: 7, hold: 1 },
       { to: { yaw: 45 }, move: 4 },
     ],
-    text: 'The thinner a face looks, the closer its vanishing point, so its edges tilt hard toward it. '
-      + 'The wide face’s edges run almost flat, toward a vanishing point far away. Watch them swap as '
-      + 'the cube turns.',
+    text: 'Watch the top edges of each face. The thin face’s edges tilt steeply, toward a '
+      + 'vanishing point close by. The wide face’s edges run almost flat, toward a vanishing '
+      + 'point far away. As the cube turns, they swap.',
     remember: 'Thin face: steep edges, close VP. Wide face: flat edges, far VP.',
   },
   {
@@ -75,9 +75,10 @@ export const TOUR = [
       { to: { yaw: 65 }, move: 7, hold: 1 },
       { to: { yaw: 45, focal: 35 }, move: 4 },
     ],
-    text: 'Turning the cube slides both vanishing points along the horizon, the same way: as one moves '
-      + 'in toward the cube, the other runs out. Seen from your eye they always stay 90° apart, as the '
-      + 'top view shows. They’re closest together when the cube is at 45°.',
+    text: 'Watch the two vanishing points on the horizon. As the cube turns, they slide the same '
+      + 'way together: one comes in toward the cube while the other runs out. They’re closest '
+      + 'together at 45°. In the top view, the lines from your eye to them always meet at a '
+      + 'right angle.',
     remember: 'Turn the box, slide both VPs together.',
   },
   {
@@ -85,9 +86,9 @@ export const TOUR = [
     inset: 'top',
     marks: ['ring'],
     path: [{ to: { yaw: 225 }, move: 14 }],
-    text: 'As the cube spins, every top corner travels around the same circle, which in perspective is '
-      + 'an ellipse. The top face is a square sitting inside it, corners touching. The bottom corners '
-      + 'ride a second ellipse below.',
+    text: 'Watch the top corners. As the cube spins, they all travel around the same ellipse: a '
+      + 'circle seen in perspective, with the top face sitting inside it, corners touching. The '
+      + 'bottom corners ride a second ellipse below.',
     remember: 'To turn a box in your head, draw the ellipse first, then set the corners on it.',
   },
   {
@@ -95,16 +96,18 @@ export const TOUR = [
     inset: 'top',
     marks: ['heights'],
     path: [{ to: { yaw: 210 }, move: 3 }],
-    text: 'The corner nearest you is the tallest edge of the cube. Every edge behind it is shorter, and '
-      + 'the further back, the shorter it gets.',
+    text: 'Compare the heights of the vertical edges. The one nearest you is the tallest; every '
+      + 'edge behind it is shorter, and the further back, the shorter. Draw a back edge as tall '
+      + 'as the front one and the box loses its depth.',
     remember: 'Draw the near corner first and hang the rest off it.',
   },
   {
     title: 'Edges converge, never spread',
     inset: 'top',
     path: [{ to: { yaw: 240 }, move: 8 }],
-    text: 'Edges that are parallel on the cube get closer together as they run back, each set aiming at '
-      + 'its own vanishing point. If a set spreads apart as it goes back, the box looks warped, even if '
+    text: 'Watch the edges as they run back. Edges that are parallel on the cube get closer '
+      + 'together the further back they go, each set aiming at its own vanishing point. If you '
+      + 'draw a set spreading apart as it goes back, it’s wrong: the box looks warped, even if '
       + 'you can’t say why.',
     remember: 'Going back, always closer together, never wider.',
   },
@@ -119,9 +122,10 @@ export const TOUR = [
       { to: { elevation: -24 }, move: 4, hold: 2 },
       { to: { elevation: 12 }, move: 3 },
     ],
-    text: 'Raise your eye and the top opens up; bring it down to the top and the top flattens to a '
-      + 'line; drop below and you see the base instead. Edges always tilt toward the horizon, steeper '
-      + 'the further they are from it.',
+    text: 'Watch the top as your eye moves. Raise your eye and the top opens up. Level with the '
+      + 'middle of the cube, you see neither top nor base, just the sides. Drop below and the '
+      + 'base comes into view instead. Edges tilt toward the horizon, steeper the further they '
+      + 'are from it.',
     remember: 'Near the horizon, flat. Far from it, open.',
   },
   {
@@ -134,13 +138,13 @@ export const TOUR = [
       { to: { elevation: 56, scale: 0.5 }, move: 5, hold: 3 },
       { to: { elevation: 12, scale: 1 }, move: 4 },
     ],
-    text: 'Watch the angle at the near corner of the top. As your eye rises above the cube, the top '
-      + 'opens up and that corner closes. While it stays wider than 90°, the cube looks solid. Once it '
-      + 'goes sharper (the number turns red), the cube stretches into a tall, pointy diamond, like '
-      + 'things at the edge of a wide-angle photo. The box is too far from where you’re looking for '
-      + 'VPs that close together.',
-    remember: 'Near corner sharper than 90°? Spread your VPs further apart, or move the box closer to '
-      + 'the horizon.',
+    text: 'Watch the angle at the near corner of the top. Your eye rises but keeps looking '
+      + 'straight ahead, so the cube sinks further below your view (it shrinks only to stay on '
+      + 'screen). At first the corner is wider than 90° and the cube looks right. Keep rising '
+      + 'and it keeps closing. Once it’s sharper than 90° (the number turns red), it’s clearly '
+      + 'wrong: the cube stretches into a tall, pointy diamond.',
+    remember: 'A near corner sharper than 90° is always wrong. Spread your VPs further apart, or move '
+      + 'the box closer to the horizon.',
   },
   {
     title: 'Close is dramatic, far is calm',
@@ -151,9 +155,10 @@ export const TOUR = [
       { to: { focal: 135 }, move: 5, hold: 3 },
       { to: { focal: 35 }, move: 3 },
     ],
-    text: 'Up close, the vanishing points pull in: edges converge hard and the back of the cube shrinks '
-      + 'a lot, so it feels big and near. From far away they drift off the page: edges run nearly '
-      + 'parallel and the cube feels small, like something you could pick up.',
+    text: 'Watch the vanishing points and the back of the cube. Up close, the VPs pull in: edges '
+      + 'converge hard and the back shrinks a lot, so the cube feels big and near. From far '
+      + 'away, the VPs drift off the page: edges run nearly parallel and the cube feels small, '
+      + 'like something you could pick up.',
     remember: 'VPs close: big and near. VPs far apart: small or far away.',
   },
   {
@@ -165,8 +170,9 @@ export const TOUR = [
       { to: { elevation: 40 }, move: 5, hold: 4 },
       { to: { elevation: 12, level: 1 }, move: 4 },
     ],
-    text: 'Tilt your view down onto the cube and its vertical edges lean in toward a third vanishing '
-      + 'point far below. It’s usually subtle.',
+    text: 'Watch the vertical edges as your view tilts down onto the cube. They stop being '
+      + 'parallel and lean in toward a third vanishing point far below. It’s subtle. Unless '
+      + 'you’re looking steeply up or down, leaning verticals just look like a mistake.',
     remember: 'Keep verticals straight unless you’re looking steeply up or down.',
   },
   {
@@ -175,8 +181,9 @@ export const TOUR = [
     mode: 'wireframe',
     marks: ['centre'],
     path: [],
-    text: 'To put anything in the middle of a face, like a door, a window or the next box, cross its '
-      + 'diagonals. In perspective the middle sits toward the back: the near half looks bigger.',
+    text: 'To find the middle of a face, cross its diagonals: they meet in the middle. In '
+      + 'perspective that’s behind the halfway point you’d guess by eye, because the near half '
+      + 'looks bigger. Use it to place a door, a window or the next box.',
     remember: 'Don’t guess the middle. Draw the X.',
   },
   {
@@ -184,16 +191,18 @@ export const TOUR = [
     inset: 'auto',
     marks: ['corner'],
     path: [{ curve: tumble, move: 18 }],
-    text: 'Tipped any way, the same rules hold. Three faces meet at the near corner and none of its '
-      + 'angles goes sharper than 90°. Each set of edges converges toward its own vanishing point.',
+    text: 'Tipped any way, the same rules hold: three faces meet at the near corner, none of its '
+      + 'angles goes sharper than 90°, and each set of edges converges toward its own vanishing '
+      + 'point.',
     remember: 'Three sets of edges, three VPs, no sharp near corner.',
   },
   {
     title: 'Your turn',
     inset: 'auto',
     path: [],
-    text: 'Drag the cube any way you like and the tour pauses. The rules are what to carry in your '
-      + 'head; the measurements in the panel are there if you want to check a drawing against them.',
+    text: 'Drag the cube any way you like and the tour pauses. Carry the rules in your head; the '
+      + 'checklist in the panel is there when you want to check a drawing against the real '
+      + 'thing.',
     remember: 'Press play to pick the tour back up.',
   },
 ];
