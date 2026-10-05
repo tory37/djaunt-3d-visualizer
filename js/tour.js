@@ -134,10 +134,13 @@ export const TOUR = [
       { to: { elevation: 56, scale: 0.5 }, move: 5, hold: 3 },
       { to: { elevation: 12, scale: 1 }, move: 4 },
     ],
-    text: 'In a natural view, the near corner of the top always looks wider than a right angle. Here '
-      + 'the eye rises while the vanishing points stay put, so the cube drifts far from the centre of '
-      + 'view: the corner goes sharp and the cube stretches.',
-    remember: 'A near corner sharper than 90° means the VPs are too close. Spread them out.',
+    text: 'Watch the angle at the near corner of the top. As your eye rises above the cube, the top '
+      + 'opens up and that corner closes. While it stays wider than 90°, the cube looks solid. Once it '
+      + 'goes sharper (the number turns red), the cube stretches into a tall, pointy diamond, like '
+      + 'things at the edge of a wide-angle photo. The box is too far from where you’re looking for '
+      + 'VPs that close together.',
+    remember: 'Near corner sharper than 90°? Spread your VPs further apart, or move the box closer to '
+      + 'the horizon.',
   },
   {
     title: 'Close is dramatic, far is calm',

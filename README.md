@@ -45,7 +45,8 @@ take as long as you like, then press next (`→` or `Space`) to go on:
 - **The near corner leads.** It's the tallest edge; draw it first.
 - **Edges converge, never spread.**
 - **Far from eye level, more you see.** Near the horizon, flat; far from it, open.
-- **Never sharper than 90°.** A sharper near corner means the VPs are too close.
+- **Never sharper than 90°.** If the near corner of the top goes sharper, the
+  box looks stretched: spread the VPs apart or bring the box nearer the horizon.
 - **Close is dramatic, far is calm.**
 - **Look down, verticals pinch** (3-point), usually subtly.
 - **An X finds the middle** of a face.
