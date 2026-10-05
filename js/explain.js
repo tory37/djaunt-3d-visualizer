@@ -481,8 +481,9 @@ export function createExplainer(app) {
       write('rule', el.rule, s.remember ?? '');
     }
     el.rule.hidden = !(kind === 'tour' && !driving && shown.rule);
-    // On phones the tour leaves out the checklist, to give the ideas room.
-    el.root.dataset.mode = kind === 'tour' && !driving ? 'tour' : 'live';
+    // On phones the tour leaves out the checklist, to give the ideas room,
+    // unless the step is about it.
+    el.root.dataset.mode = kind === 'tour' && !driving && !steps[current].checks ? 'tour' : 'live';
 
     drawRows(a);
     scrollers.forEach(markMore);

@@ -10,6 +10,8 @@
  *   remember  the rule of thumb to take away, shown under the text
  *   inset     which diagram to show: 'top' view, 'side' view, or 'auto'
  *   mode      optional: switch to 'solid' or 'wireframe' when the step starts
+ *   checks    optional: show the "Check your drawing" list on phones too (the
+ *             tour leaves it out there, to give the ideas room)
  *   marks     guide marks drawn over the cube (see drawMarks in drawing.js):
  *             'widths', 'heights', 'centre', 'corner', 'slopes', 'lean', 'ring'
  *   path      the motion, as a list of moves played one after another:
@@ -199,10 +201,11 @@ export const TOUR = [
   {
     title: 'Your turn',
     inset: 'auto',
+    checks: true,
     path: [],
-    text: 'Drag the cube any way you like and the tour pauses. Carry the rules in your head; the '
-      + 'checklist in the panel is there when you want to check a drawing against the real '
-      + 'thing.',
+    text: 'Drag the cube any way you like and the tour pauses. Carry the rules in your head, and '
+      + 'when you want to check a drawing, hold it against the “Check your drawing” list below: '
+      + 'it measures whatever view is on screen.',
     remember: 'Press play to pick the tour back up.',
   },
 ];
