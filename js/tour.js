@@ -14,9 +14,12 @@
  *             'widths', 'heights', 'centre', 'corner', 'slopes', 'lean', 'ring'
  *   path      the motion, as a list of moves played one after another:
  *               { to: {...}, move: seconds, hold: seconds }
- *             eases from where the previous move ended to `to`, then holds.
+ *             eases from where the previous move ended to `to`, then holds
+ *             before the next move.
  *               { curve: (u, from) => pose, move: seconds }
  *             follows a custom path, u running from 0 to 1.
+ *             The step plays its path once, then waits for the reader to go
+ *             on, so it needs no hold at the end. [] for a step that doesn't move.
  *
  * A pose is { yaw, pitch, roll } of the cube in degrees, plus the camera's
  * { elevation } in degrees, { level } (1 = level camera, 0 = tilted to look
@@ -31,7 +34,7 @@ export const TOUR = [
     title: 'Your eye level is the horizon',
     inset: 'side',
     mode: 'wireframe',
-    path: [{ hold: 10 }],
+    path: [],
     text: 'The gold line is the height of your eye: the horizon. Square-on like this, the front face is '
       + 'just a square, so draw its true shape. Every edge running away from you meets at one point on '
       + 'the horizon, straight ahead.',
@@ -43,7 +46,7 @@ export const TOUR = [
     marks: ['widths'],
     path: [
       { to: { yaw: 45 }, move: 9, hold: 2 },
-      { to: { yaw: 20 }, move: 4, hold: 1 },
+      { to: { yaw: 20 }, move: 4 },
     ],
     text: 'As the cube turns, the side face opens and the front face closes: whatever one gains, the '
       + 'other gives up, until they match at 45°. The thin face changes fastest, so it shows best how '
@@ -56,7 +59,7 @@ export const TOUR = [
     marks: ['slopes'],
     path: [
       { to: { yaw: 70 }, move: 7, hold: 1 },
-      { to: { yaw: 45 }, move: 4, hold: 1 },
+      { to: { yaw: 45 }, move: 4 },
     ],
     text: 'The thinner a face looks, the closer its vanishing point, so its edges tilt hard toward it. '
       + 'The wide face’s edges run almost flat, toward a vanishing point far away. Watch them swap as '
@@ -70,7 +73,7 @@ export const TOUR = [
       { to: { focal: 20 }, move: 3, hold: 1 },
       { to: { yaw: 25 }, move: 5, hold: 1 },
       { to: { yaw: 65 }, move: 7, hold: 1 },
-      { to: { yaw: 45, focal: 35 }, move: 4, hold: 1 },
+      { to: { yaw: 45, focal: 35 }, move: 4 },
     ],
     text: 'Turning the cube slides both vanishing points along the horizon, the same way: as one moves '
       + 'in toward the cube, the other runs out. Seen from your eye they always stay 90° apart, as the '
@@ -81,7 +84,7 @@ export const TOUR = [
     title: 'Corners ride a circle',
     inset: 'top',
     marks: ['ring'],
-    path: [{ to: { yaw: 225 }, move: 14, hold: 2 }],
+    path: [{ to: { yaw: 225 }, move: 14 }],
     text: 'As the cube spins, every top corner travels around the same circle, which in perspective is '
       + 'an ellipse. The top face is a square sitting inside it, corners touching. The bottom corners '
       + 'ride a second ellipse below.',
@@ -91,7 +94,7 @@ export const TOUR = [
     title: 'The near corner leads',
     inset: 'top',
     marks: ['heights'],
-    path: [{ to: { yaw: 210 }, move: 3, hold: 8 }],
+    path: [{ to: { yaw: 210 }, move: 3 }],
     text: 'The corner nearest you is the tallest edge of the cube. Every edge behind it is shorter, and '
       + 'the further back, the shorter it gets.',
     remember: 'Draw the near corner first and hang the rest off it.',
@@ -99,7 +102,7 @@ export const TOUR = [
   {
     title: 'Edges converge, never spread',
     inset: 'top',
-    path: [{ to: { yaw: 240 }, move: 8, hold: 2 }],
+    path: [{ to: { yaw: 240 }, move: 8 }],
     text: 'Edges that are parallel on the cube get closer together as they run back, each set aiming at '
       + 'its own vanishing point. If a set spreads apart as it goes back, the box looks warped, even if '
       + 'you can’t say why.',
@@ -114,7 +117,7 @@ export const TOUR = [
       { to: { elevation: 32 }, move: 4, hold: 2 },
       { to: { elevation: 0 }, move: 4, hold: 2 },
       { to: { elevation: -24 }, move: 4, hold: 2 },
-      { to: { elevation: 12 }, move: 3, hold: 1 },
+      { to: { elevation: 12 }, move: 3 },
     ],
     text: 'Raise your eye and the top opens up; bring it down to the top and the top flattens to a '
       + 'line; drop below and you see the base instead. Edges always tilt toward the horizon, steeper '
@@ -129,7 +132,7 @@ export const TOUR = [
       { to: { yaw: 225 }, move: 2, hold: 2 },
       { to: { elevation: 30, scale: 0.8 }, move: 4, hold: 2 },
       { to: { elevation: 56, scale: 0.5 }, move: 5, hold: 3 },
-      { to: { elevation: 12, scale: 1 }, move: 4, hold: 1 },
+      { to: { elevation: 12, scale: 1 }, move: 4 },
     ],
     text: 'In a natural view, the near corner of the top always looks wider than a right angle. Here '
       + 'the eye rises while the vanishing points stay put, so the cube drifts far from the centre of '
@@ -143,7 +146,7 @@ export const TOUR = [
     path: [
       { to: { focal: 16 }, move: 4, hold: 3 },
       { to: { focal: 135 }, move: 5, hold: 3 },
-      { to: { focal: 35 }, move: 3, hold: 1 },
+      { to: { focal: 35 }, move: 3 },
     ],
     text: 'Up close, the vanishing points pull in: edges converge hard and the back of the cube shrinks '
       + 'a lot, so it feels big and near. From far away they drift off the page: edges run nearly '
@@ -157,7 +160,7 @@ export const TOUR = [
     path: [
       { to: { level: 0 }, move: 4, hold: 1 },
       { to: { elevation: 40 }, move: 5, hold: 4 },
-      { to: { elevation: 12, level: 1 }, move: 4, hold: 1 },
+      { to: { elevation: 12, level: 1 }, move: 4 },
     ],
     text: 'Tilt your view down onto the cube and its vertical edges lean in toward a third vanishing '
       + 'point far below. It’s usually subtle.',
@@ -168,7 +171,7 @@ export const TOUR = [
     inset: 'top',
     mode: 'wireframe',
     marks: ['centre'],
-    path: [{ hold: 9 }],
+    path: [],
     text: 'To put anything in the middle of a face, like a door, a window or the next box, cross its '
       + 'diagonals. In perspective the middle sits toward the back: the near half looks bigger.',
     remember: 'Don’t guess the middle. Draw the X.',
@@ -185,7 +188,7 @@ export const TOUR = [
   {
     title: 'Your turn',
     inset: 'auto',
-    path: [{ hold: 4 }],
+    path: [],
     text: 'Drag the cube any way you like and the tour pauses. The rules are what to carry in your '
       + 'head; the measurements in the panel are there if you want to check a drawing against them.',
     remember: 'Press play to pick the tour back up.',

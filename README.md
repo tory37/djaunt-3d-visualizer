@@ -21,7 +21,7 @@ hexagonal prisms, cylinder, cone, sphere and torus.
 | `G` `L` `V` `P` | Ground grid, horizon line, vanishing points, paper background |
 | `T` or **Explain** | Guided tour of perspective (see below) |
 | `E` | Explain as I rotate: live narration of the current view |
-| `Space` `←` `→` | During the tour: pause / play, previous / next step |
+| `Space` `←` `→` | During the tour: pause / play or next step, previous / next step |
 | `Esc` | Close the explainer |
 | `H` | Hide every control, for a clean reference |
 
@@ -30,7 +30,8 @@ hexagonal prisms, cylinder, cone, sphere and torus.
 **Explain** plays a tour on the cube built around rules of thumb to carry in
 your head when you imagine or draw a box, not measurements. Each step shows
 one idea in motion, with a short fixed caption saying what's happening and a
-highlighted rule to remember:
+highlighted rule to remember. A step plays its motion once and then waits:
+take as long as you like, then press next (`→` or `Space`) to go on:
 
 - **Your eye level is the horizon.** Flat edges running away meet on it.
 - **The faces trade width.** One face opens as the other closes; get the thin

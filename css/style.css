@@ -194,6 +194,8 @@ button {
   stroke-linejoin: round;
 }
 .icon-btn[hidden] { display: none; }
+/* The tour step is done and waiting for you. */
+.icon-btn.ready { border-color: var(--dj-accent); color: var(--dj-accent-hi); }
 
 /* ---------- explainer card ---------- */
 
@@ -338,7 +340,7 @@ button {
 .progress[hidden] { display: none; }
 .progress button {
   position: relative;
-  flex-basis: 0;
+  flex: 1 1 0;
   min-width: 0;
   height: 24px;
   padding: 0;

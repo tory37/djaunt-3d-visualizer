@@ -10,7 +10,8 @@ import { measureBox, checks, drawMarks, SHARP } from './drawing.js';
  * make on a drawing; see drawing.js) and shows that as a checklist, marks over
  * the view, and a top or side view of the setup. In live mode it also writes
  * the caption from those measurements; in tour mode it plays the steps in
- * tour.js.
+ * tour.js, one at a time: each step plays its motion, then waits for you to
+ * move on.
  */
 
 const FAR_PAGES = 6;      // a VP further than this many half-pages from the centre is "far off"
@@ -56,14 +57,14 @@ export function createExplainer(app) {
   for (const node of scrollers) node.addEventListener('scroll', () => markMore(node), { passive: true });
 
   const steps = buildTimeline(TOUR);
-  const total = steps[steps.length - 1].end;
+  const last = steps.length - 1;
 
   let open = false;
   let kind = 'live';     // 'live' or 'tour'
   let playing = false;
   let driving = false;   // the user took over during the tour
   let time = 0;          // seconds into the tour
-  let current = -1;      // step being shown
+  let current = 0;       // step being shown
   let blend = null;      // { from, start } while easing back onto the tour
   let lastFrame = null;
   let frame = 0;
@@ -76,7 +77,8 @@ export function createExplainer(app) {
     let pose = { ...START };
     return tour.map((step) => {
       const start = at;
-      const moves = step.path.map((m) => {
+      const path = step.path?.length ? step.path : [{}];
+      const moves = path.map((m) => {
         const from = pose;
         const move = m.move ?? 0;
         const hold = m.hold ?? 0;
@@ -90,13 +92,8 @@ export function createExplainer(app) {
     });
   }
 
-  function stepAt(t) {
-    const i = steps.findIndex((s) => t < s.end);
-    return i < 0 ? steps.length - 1 : i;
-  }
-
-  function poseAt(t) {
-    const step = steps[stepAt(t)];
+  function poseAt(i, t) {
+    const step = steps[i];
     const move = step.moves.find((m) => t < m.end) ?? step.moves[step.moves.length - 1];
     const u = move.t1 > move.t0 ? THREE.MathUtils.clamp((t - move.t0) / (move.t1 - move.t0), 0, 1) : 1;
     if (move.curve) return move.curve(u, move.from);
@@ -159,14 +156,14 @@ export function createExplainer(app) {
 
     if (blend) {
       const u = Math.min(1, (now - blend.start) / BLEND_MS);
-      applyPose(poseAt(time), blend.from, easeInOut(u));
+      applyPose(poseAt(current, time), blend.from, easeInOut(u));
       if (u >= 1) blend = null;
     } else {
-      if (playing) time = Math.min(total, time + dt);
-      applyPose(poseAt(time));
-      if (time >= total) finish();
+      const { end } = steps[current];
+      if (playing) time = Math.min(end, time + dt);
+      applyPose(poseAt(current, time));
+      if (playing && time >= end) arrive();
     }
-    enterStep(stepAt(time));
     app.syncUI();
     app.requestRender();
     if (playing || blend) frame = requestAnimationFrame(tick);
@@ -178,18 +175,15 @@ export function createExplainer(app) {
     frame = requestAnimationFrame(tick);
   }
 
-  function enterStep(i, force = false) {
-    if (i === current && !force) return;
-    current = i;
-    const { mode } = steps[i];
-    if (mode && state.mode !== mode) app.setMode(mode);
-  }
-
-  function finish() {
+  // The step's motion is done: hold the last pose until the reader moves on.
+  function arrive() {
     playing = false;
-    app.setLevelMix(null);
+    if (current === last) app.setLevelMix(null);
     refreshControls();
   }
+
+  const atEnd = () => time >= steps[current].end;
+  const finished = () => current === last && atEnd();
 
   // Get the scene ready for the tour and ease onto it from wherever it is.
   function resume() {
@@ -199,19 +193,26 @@ export function createExplainer(app) {
     blend = { from: snapshot(), start: performance.now() };
     driving = false;
     playing = true;
-    enterStep(stepAt(time), true);
+    const { mode } = steps[current];
+    if (mode && state.mode !== mode) app.setMode(mode);
     refreshControls();
     run();
   }
 
-  function startTour() {
-    show('tour');
-    time = 0;
-    current = -1;
-    app.setPanelOpen(false);
+  // Play step i from its start.
+  function seek(i) {
+    current = i;
+    time = steps[i].start;
     resume();
   }
 
+  function startTour() {
+    show('tour');
+    app.setPanelOpen(false);
+    seek(0);
+  }
+
+  // Pause or resume the motion; once a step has finished, go on to the next.
   function togglePlay() {
     if (kind !== 'tour') return;
     if (playing) {
@@ -219,21 +220,15 @@ export function createExplainer(app) {
       refreshControls();
       return;
     }
-    if (time >= total) time = 0;
-    else if (driving) time = steps[current].start;
-    resume();
+    if (finished()) seek(0);
+    else if (driving) seek(current);
+    else if (atEnd()) seek(current + 1);
+    else resume();
   }
 
   function step(by) {
     if (kind !== 'tour') return;
-    const i = THREE.MathUtils.clamp((driving ? current : stepAt(time)) + by, 0, steps.length - 1);
-    time = steps[i].start;
-    resume();
-  }
-
-  function seek(i) {
-    time = steps[i].start;
-    resume();
+    seek(THREE.MathUtils.clamp(current + by, 0, last));
   }
 
   // The user moved something: stop the tour and narrate their view instead.
@@ -471,7 +466,7 @@ export function createExplainer(app) {
 
     if (kind === 'live' || driving) {
       const eyebrow = !driving ? 'Live · drag to explore'
-        : time >= total ? 'Your turn · drag to explore' : 'Tour paused · you’re driving';
+        : finished() ? 'Your turn · drag to explore' : 'Tour paused · you’re driving';
       write('eyebrow', el.eyebrow, eyebrow);
       const text = live.text || 'This shape has no parallel edges, so there are no vanishing points to track.';
       if (settled(`${live.title}\n${text}`)) {
@@ -479,7 +474,7 @@ export function createExplainer(app) {
         write('text', el.text, text);
       }
     } else {
-      const s = steps[current < 0 ? 0 : current];
+      const s = steps[current];
       write('eyebrow', el.eyebrow, `Tour · ${current + 1} / ${steps.length}`);
       write('title', el.title, s.title);
       write('text', el.text, format(s.text, a));
@@ -491,7 +486,7 @@ export function createExplainer(app) {
 
     drawRows(a);
     scrollers.forEach(markMore);
-    const wanted = kind === 'tour' && !driving ? steps[Math.max(0, current)].inset : 'auto';
+    const wanted = kind === 'tour' && !driving ? steps[current].inset : 'auto';
     drawInset(a, wanted === 'auto' ? autoView(a) : wanted);
     drawProgress();
   }
@@ -553,7 +548,7 @@ export function createExplainer(app) {
   // ---------- marks over the 3D view ----------
 
   function currentMarks(m) {
-    if (kind === 'tour' && !driving) return steps[Math.max(0, current)].marks ?? [];
+    if (kind === 'tour' && !driving) return steps[current].marks ?? [];
     return { two: ['widths', 'heights', 'corner'], one: ['heights'], tilted: ['corner'] }[m?.kind] ?? [];
   }
 
@@ -567,7 +562,7 @@ export function createExplainer(app) {
   }
 
   function buildProgress() {
-    el.progress.innerHTML = steps.map((s, i) => `<button type="button" style="flex-grow:${s.end - s.start}" `
+    el.progress.innerHTML = steps.map((s, i) => `<button type="button" `
       + `aria-label="Step ${i + 1}: ${s.title}" title="${s.title}"><i></i></button>`).join('');
     el.progress.querySelectorAll('button').forEach((b, i) => b.addEventListener('click', () => seek(i)));
   }
@@ -576,7 +571,8 @@ export function createExplainer(app) {
     if (kind !== 'tour') return;
     el.progress.querySelectorAll('button').forEach((b, i) => {
       const s = steps[i];
-      const u = THREE.MathUtils.clamp((time - s.start) / (s.end - s.start), 0, 1);
+      const u = i !== current ? Number(i < current)
+        : s.end > s.start ? THREE.MathUtils.clamp((time - s.start) / (s.end - s.start), 0, 1) : 1;
       b.firstChild.style.width = `${u * 100}%`;
       b.classList.toggle('current', i === current);
     });
@@ -586,10 +582,14 @@ export function createExplainer(app) {
     const tour = kind === 'tour';
     el.prev.hidden = el.next.hidden = el.play.hidden = el.progress.hidden = !tour;
     el.tourButton.hidden = tour;
-    const label = playing ? 'Pause (Space)' : time >= total ? 'Replay' : 'Play (Space)';
+    const waiting = tour && !playing && !driving && atEnd() && current < last;
+    const label = playing ? 'Pause (Space)' : finished() ? 'Replay'
+      : waiting ? 'Next step (Space)' : 'Play (Space)';
     el.play.setAttribute('aria-label', label);
     el.play.title = label;
-    el.play.dataset.state = playing ? 'pause' : time >= total ? 'replay' : 'play';
+    el.play.dataset.state = playing ? 'pause' : finished() ? 'replay' : 'play';
+    // Done with this step: point at the way on.
+    el.next.classList.toggle('ready', waiting);
   }
 
   // ---------- the top / side view ----------
